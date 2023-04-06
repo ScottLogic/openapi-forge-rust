@@ -1,0 +1,6 @@
+{
+  "package": {
+    "default": "openapi-forge-project",
+    "description": "The crate name for the generated project."
+  }
+}

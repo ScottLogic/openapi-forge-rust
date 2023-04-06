@@ -1,0 +1,96 @@
+#![allow(unused_imports)]
+use std::collections::HashMap;
+
+use reqwest::Client;
+use reqwest::Url;
+
+use crate::config::Configuration;
+use crate::{response::ForgeResponse, model::*};
+
+pub struct ApiClient{{_tag.name}} {
+    config: Configuration,
+    client: Client,
+}
+
+impl ApiClient{{_tag.name}} {
+    pub fn new(config: Configuration) -> Self{
+        ApiClient{{_tag.name}} { config, client: Client::new() }
+    }
+
+ {{#each paths}}
+    {{~setVar "path" @key}}
+    {{~#each this}}
+    {{~#ifEquals ../../_tag.name _tag.name}}
+    {{~#if (pathContentTypeSupported this)}}
+    {{#if summary}}
+    // <summary>
+    // {{summary}}
+    // </summary>
+    {{/if}}
+    {{#if description}}
+    // {{description}}
+    {{/if}}
+    {{#if tags}}
+    // <tags>{{tags}}</tags>
+    {{/if}}
+    {{#each _sortedParameters}}
+    // <param name="{{name}}">{{description}}</param>
+    {{/each}}
+    pub async fn {{toRustParamName operationId}} (
+        &self, 
+        {{~#each _sortedParameters ~}}
+            {{#ifEquals _response.required true}}
+                {{toRustParamName name ~}}: {{~safeTypeConvert schema true}},
+            {{else}}
+                {{toRustParamName name ~}}: {{~safeTypeConvert schema false}},
+            {{/ifEquals}}
+        {{~/each ~}}
+    ) -> ForgeResponse<{{safeTypeConvert _response.schema true}}>
+    {
+        {{#each _sortedParameters}}
+            {{#if (hasDefault schema)}}
+            // Set default value for {{toRustParamName name}}
+            let {{toRustParamName name ~}} = if ({{toRustParamName name ~}}.is_none()) { Some({{{quoteIfString schema.default}}}.to_owned()) } else { status }; 
+            {{/if ~}}
+        {{/each}}
+        let url = self.config.get_base_address() + {{{setPathParameters @root.path _sortedParameters}}};
+        let request_uri = Url::parse(&url).unwrap();
+        {{createQueryStringSnippet _sortedParameters}}
+        let response = self.client.{{@key}}(request_uri)
+        {{#if (queryParametersExist _sortedParameters)}}
+        .query(&query_params)
+        {{/if}}
+        {{#if (bodyParameterExists _sortedParameters)}}
+        .json(&body)
+        {{/if}}
+        .send()
+        .await.unwrap();
+        let status_code = response.status().as_u16();
+        let headers = response
+            .headers()
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.to_str().unwrap().to_owned()))
+            .collect::<HashMap<_, _>>();
+        let data = response.json::<{{safeTypeConvert _response.schema true}}>().await.unwrap();
+        ForgeResponse::new(data, status_code, headers )
+    }
+    {{else}}
+    pub fn {{toRustParamName operationId}} (
+        {{~#each _sortedParameters ~}}
+            {{#ifEquals _response.required true}}
+                _{{toRustParamName name ~}}: {{~safeTypeConvert schema true}},
+            {{else}}
+                _{{toRustParamName name ~}}: {{~safeTypeConvert schema false}},
+            {{/ifEquals}}
+        {{~/each ~}}
+    ) -> ForgeResponse<{{safeTypeConvert _response.schema true}}>
+    {
+        panic!("Operation 'uploadFile' most likely does not support json encoded requests which are not supported by openapi forge.");
+    }    
+    {{/if}}
+    {{/ifEquals}}
+    {{/each}}  
+    {{/each}}
+
+
+}

@@ -1,0 +1,21 @@
+const SERVERS: [&str, {{servers.length}}] =  [{{~#each servers~}}"{{url}}"{{#unless @last}},{{/unless}}{{~/each~}}];
+
+pub struct Configuration {
+    pub base_path: String,
+    pub bearer_token: Option<String>,
+    pub selected_server_index: usize,
+}
+
+impl Configuration {
+    pub fn new(base_path: &str) -> Self {
+        Self {
+            base_path: base_path.to_owned(),
+            bearer_token: None,
+            selected_server_index: 0
+          }
+    }
+
+    pub fn get_base_address(&self) -> String {
+        self.base_path.to_owned() + SERVERS[self.selected_server_index]
+    }
+}

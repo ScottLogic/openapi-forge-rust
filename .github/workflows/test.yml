@@ -1,0 +1,39 @@
+name: Test
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  test-generator:
+    name: Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 16.x
+
+      - name: Check out Git repository
+        uses: actions/checkout@v3 
+        with: 
+          path: openapi-forge-java
+       
+      - name: Install Node.js dependencies
+        run: |
+          cd openapi-forge-java
+          npm install
+
+      - name: Check out the openapi-forge generator
+        uses: actions/checkout@v3
+        with: 
+          repository: ScottLogic/openapi-forge
+          path: openapi-forge
+
+      - name: Run the tests
+        run: |
+          cd openapi-forge-java
+          npm test

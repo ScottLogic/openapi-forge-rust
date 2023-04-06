@@ -1,0 +1,34 @@
+use std::collections::HashMap;
+
+use serde::{ Serialize, Deserialize };
+
+// <summary>
+// Represents an HTTP response.
+// </summary>
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ForgeResponse<T> {
+    // <summary>
+    // Gets the typed response.
+    // </summary>
+    pub data: T,
+
+    // <summary>
+    // Gets the HTTP status code.
+    // </summary>
+    pub status_code: u16,
+
+    // <summary>
+    // Gets the returned HTTP headers.
+    // </summary>
+    pub headers: HashMap<String,String>,
+}
+
+impl<T> ForgeResponse<T> {
+    pub fn new(data: T, status_code: u16, headers: HashMap<String,String>) -> Self {
+        Self {
+            data,
+            status_code,
+            headers,
+        }
+    }
+}
