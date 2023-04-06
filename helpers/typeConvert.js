@@ -55,7 +55,8 @@ const typeConvert = (prop, is_required = true) => {
 
   // resolve references
   if (prop.$ref) {
-    return toSafeName(prop.$ref.split("/").pop());
+    const objectType = toSafeName(prop.$ref.split("/").pop());
+    return is_required ? objectType : `Option<${objectType}>`;
   }
 
   const type = prop.format

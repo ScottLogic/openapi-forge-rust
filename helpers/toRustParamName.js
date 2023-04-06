@@ -7,7 +7,7 @@ const toRustParamName = (name) => {
   if (name == "type"){
     name = "r#" + name;
   }
-  return name.charAt(0).toLowerCase() + name.substr(1);
+  return name;
 };
 
 module.exports = toRustParamName;
