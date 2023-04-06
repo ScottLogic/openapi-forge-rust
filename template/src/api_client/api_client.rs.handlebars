@@ -1,4 +1,3 @@
-#![allow(unused_imports)]
 use std::collections::HashMap;
 
 use reqwest::Client;
@@ -16,8 +15,7 @@ impl ApiClient{{_tag.name}} {
     pub fn new(config: Configuration) -> Self{
         ApiClient{{_tag.name}} { config, client: Client::new() }
     }
-
- {{#each paths}}
+    {{#each paths}}
     {{~setVar "path" @key}}
     {{~#each this}}
     {{~#ifEquals ../../_tag.name _tag.name}}
@@ -55,7 +53,9 @@ impl ApiClient{{_tag.name}} {
         {{/each}}
         let url = self.config.get_base_address() + {{{setPathParameters @root.path _sortedParameters}}};
         let request_uri = Url::parse(&url).unwrap();
+        {{#if (queryParametersExist _sortedParameters)}}
         {{createQueryStringSnippet _sortedParameters}}
+        {{/if}}
         let response = self.client.{{@key}}(request_uri)
         {{#if (queryParametersExist _sortedParameters)}}
         .query(&query_params)
@@ -75,22 +75,21 @@ impl ApiClient{{_tag.name}} {
         ForgeResponse::new(data, status_code, headers )
     }
     {{else}}
+    #[allow(unused_variables)]
     pub fn {{toRustParamName operationId}} (
         {{~#each _sortedParameters ~}}
             {{#ifEquals _response.required true}}
-                _{{toRustParamName name ~}}: {{~safeTypeConvert schema true}},
+                {{toRustParamName name ~}}: {{~safeTypeConvert schema true}},
             {{else}}
-                _{{toRustParamName name ~}}: {{~safeTypeConvert schema false}},
+                {{toRustParamName name ~}}: {{~safeTypeConvert schema false}},
             {{/ifEquals}}
         {{~/each ~}}
     ) -> ForgeResponse<{{safeTypeConvert _response.schema true}}>
     {
-        panic!("Operation 'uploadFile' most likely does not support json encoded requests which are not supported by openapi forge.");
+        panic!("Operation `{{toRustParamName operationId}}` most likely does not support json encoded requests which are not supported by openapi forge.", );
     }    
     {{/if}}
     {{/ifEquals}}
     {{/each}}  
     {{/each}}
-
-
 }
