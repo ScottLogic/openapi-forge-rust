@@ -12,8 +12,8 @@ pub struct ApiClient{{_tag.name}} {
 }
 
 impl ApiClient{{_tag.name}} {
-    pub fn new(config: Configuration) -> Self{
-        ApiClient{{_tag.name}} { config, client: Client::new() }
+    pub fn new(config: Configuration, client: Client) -> Self{
+        ApiClient{{_tag.name}} { config, client }
     }
     {{#each paths}}
     {{~setVar "path" @key}}
@@ -37,7 +37,7 @@ impl ApiClient{{_tag.name}} {
     pub async fn {{toRustParamName operationId}} (
         &self, 
         {{~#each _sortedParameters ~}}
-            {{#ifEquals _response.required true}}
+            {{#ifEquals required true}}
                 {{toRustParamName name ~}}: {{~safeTypeConvert schema true}},
             {{else}}
                 {{toRustParamName name ~}}: {{~safeTypeConvert schema false}},
