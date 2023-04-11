@@ -4,6 +4,9 @@
 */
 {{/if}}
 #[derive(Serialize, Deserialize, Debug)]
+{{#ifEquals @root.cabi "true"}}
+#[repr(C)]
+{{/ifEquals}}
 pub struct {{toClassName @key}} 
 {
   {{#each properties}}

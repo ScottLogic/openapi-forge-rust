@@ -1,4 +1,11 @@
+{{setVar "cabi" _options.[generator.cabi]}}
+{{#ifEquals _options.[generator.cabi] "true"}}
+use abi_stable::std_types::RHashMap as HashMap;
+{{/ifEquals}}
+{{#ifNotEquals _options.[generator.cabi] "true"}}
 use std::collections::HashMap;
+{{/ifNotEquals}}
+
 
 use reqwest::Client;
 use reqwest::Url;
@@ -6,6 +13,17 @@ use reqwest::Url;
 use crate::config::Configuration;
 use crate::{response::ForgeResponse, model::*};
 
+{{#ifEquals _options.[generator.cabi] "true"}}
+use abi_stable::std_types::string::RString as String;
+use abi_stable::std_types::ROption as Option;
+#[allow(unused_imports)]
+use abi_stable::std_types::vec::RVec as Vec;
+use async_ffi::{FfiFuture, FutureExt};
+{{/ifEquals}}
+
+{{#ifEquals _options.[generator.cabi] "true"}}
+#[repr(C)]
+{{/ifEquals}}
 pub struct ApiClient{{_tag.name}} {
     config: Configuration,
     client: Client,
@@ -48,13 +66,13 @@ impl ApiClient{{_tag.name}} {
         {{#each _sortedParameters}}
             {{#if (hasDefault schema)}}
             // Set default value for {{toRustParamName name}}
-            let {{toRustParamName name ~}} = if ({{toRustParamName name ~}}.is_none()) { Some({{{quoteIfString schema.default}}}.to_owned()) } else { status }; 
+            let {{toRustParamName name ~}} = if ({{toRustParamName name ~}}.is_none()) { {{getSome @root.cabi}} ({{{quoteIfString schema.default}}}.into()) } else { status }; 
             {{/if ~}}
         {{/each}}
-        let url = self.config.get_base_address() + {{{setPathParameters @root.path _sortedParameters}}};
+        let url = self.config.get_base_address() + {{{setPathParameters @root.path _sortedParameters @root.cabi}}};
         let request_uri = Url::parse(&url).unwrap();
         {{#if (queryParametersExist _sortedParameters)}}
-        {{createQueryStringSnippet _sortedParameters}}
+        {{createQueryStringSnippet _sortedParameters @root.cabi}}
         {{/if}}
         let response = self.client.{{@key}}(request_uri)
         {{#if (queryParametersExist _sortedParameters)}}
@@ -69,7 +87,7 @@ impl ApiClient{{_tag.name}} {
         let headers = response
             .headers()
             .iter()
-            .map(|(k, v)| (k.to_string(), v.to_str().unwrap().to_owned()))
+            .map(|(k, v)| (k.to_string().into(), v.to_str().unwrap().into()))
             .collect::<HashMap<_, _>>();
         let data = response.json::<{{safeTypeConvert _response.schema true}}>().await.unwrap();
         ForgeResponse::new(data, status_code, headers )
@@ -93,3 +111,47 @@ impl ApiClient{{_tag.name}} {
     {{/each}}  
     {{/each}}
 }
+
+
+{{#ifEquals _options.[generator.cabi] "true"}}
+#[no_mangle]
+pub extern "C" fn c_api_client{{toRustParamName _tag.name}}_new(
+    config: Box<Configuration>,
+    client: Box<Client>,
+) -> Box<ApiClient{{_tag.name}}>{
+    Box::new(ApiClient{{_tag.name}} { config: *config, client: *client })
+}
+{{#each paths}}
+{{~setVar "path" @key}}
+{{~#each this}}
+{{~#ifEquals ../../_tag.name _tag.name}}
+{{~#if (pathContentTypeSupported this)}}
+#[no_mangle]
+pub extern "C" fn c_api_client{{toRustParamName _tag.name}}_{{toRustParamName operationId}} (
+    api_client: Box<ApiClient{{_tag.name}}>,
+    {{~#each _sortedParameters ~}}
+        {{#ifEquals required true}}
+            {{toRustParamName name ~}}: {{~safeTypeConvert schema true}},
+        {{else}}
+            {{toRustParamName name ~}}: {{~safeTypeConvert schema false}},
+        {{/ifEquals}}
+    {{~/each ~}}
+) -> FfiFuture<ForgeResponse<{{safeTypeConvert _response.schema true}}>> {
+    async move {
+        api_client.{{toRustParamName operationId}}(
+        {{~#each _sortedParameters ~}}
+            {{#ifEquals required true}}
+                {{toRustParamName name ~}},
+            {{else}}
+                {{toRustParamName name ~}},
+            {{/ifEquals}}
+        {{~/each ~}}
+        ).await
+    }
+    .into_ffi()
+}
+{{/if}}
+{{/ifEquals}}
+{{/each}}  
+{{/each}}
+{{/ifEquals}}

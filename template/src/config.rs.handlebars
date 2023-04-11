@@ -9,7 +9,7 @@ pub struct Configuration {
 impl Configuration {
     pub fn new(base_path: &str) -> Self {
         Self {
-            base_path: base_path.to_owned(),
+            base_path: base_path.into(),
             bearer_token: None,
             selected_server_index: 0
           }
@@ -19,3 +19,11 @@ impl Configuration {
         self.base_path.to_owned() + SERVERS[self.selected_server_index]
     }
 }
+
+{{#ifEquals _options.[generator.cabi] "true"}}
+use abi_stable::std_types::string::RString;
+#[no_mangle]
+pub extern "C" fn c_config_new(base_path: RString) -> Box<Configuration>{
+    Box::new(Configuration::new(&base_path))
+}
+{{/ifEquals}}

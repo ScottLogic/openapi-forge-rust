@@ -1,3 +1,11 @@
 {{#each _tags}}
 pub mod api_client{{toRustParamName name}};
 {{/each}}
+
+{{#ifEquals _options.[generator.cabi] "true"}}
+use reqwest::Client;
+#[no_mangle]
+pub extern "C" fn c_reqwest_client_new() -> Box<Client>{
+    Box::new(Client::new())
+}
+{{/ifEquals}}
