@@ -34,7 +34,7 @@ const setPathParameters = (path, sortedParams) => {
         }
         default:
           {
-            if (pathParam.schema._required) {
+            if (pathParam.required) {
               return `", &${safeParamName}.to_string(), "`;
             } else {
               return `", &{ if let Some(${safeParamName}) = ${safeParamName} { ${safeParamName}.to_string() } else { "".to_owned() } }, "`
