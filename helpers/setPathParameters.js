@@ -1,8 +1,9 @@
 const Handlebars = require("handlebars");
 const toRustParamName = require("./toRustParamName");
 const getParametersByType = require("./getParametersByType");
+const getSome = require("./getSome");
 
-const setPathParameters = (path, sortedParams) => {
+const setPathParameters = (path, sortedParams, is_cabi = false) => {
   const pathParams = getParametersByType(sortedParams, "path");
   if (pathParams.length === 0) {
     return `"` +path + `"`;
@@ -37,7 +38,7 @@ const setPathParameters = (path, sortedParams) => {
             if (pathParam.required) {
               return `", &${safeParamName}.to_string(), "`;
             } else {
-              return `", &{ if let Some(${safeParamName}) = ${safeParamName} { ${safeParamName}.to_string() } else { "".to_owned() } }, "`
+              return `", &{ if let ` + getSome(is_cabi) + `(${safeParamName}) = ${safeParamName} { ${safeParamName}.to_string() } else { "".into() } }, "`
             }
           }
       }

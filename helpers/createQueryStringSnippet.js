@@ -1,6 +1,7 @@
 const Handlebars = require("handlebars");
 const toParamName = require("./toParamName");
 const getParametersByType = require("./getParametersByType");
+const getSome = require("./getSome")
 
 const isRequired = (typeDef) => {
   return typeof typeDef._required !== 'undefined';
@@ -17,20 +18,20 @@ const serialiseArrayParam = (param, is_required = false) => {
   return serialisedParam;
 };
 
-const serialiseObjectParam = (param, is_required = false) => {
+const serialiseObjectParam = (param, is_required = false, is_cabi = false) => {
   const safeParamName = toParamName(param.name);
   let serialisedObject = "";
   for (const [propName, objProp] of Object.entries(param.schema.properties)) {
     let res = "";
     if (!isRequired(objProp)){
-      res = `if let Some(${propName}) = ${safeParamName}.${propName} { ` + pushToQueryParam(propName, propName) + ` }`; 
+      res = `if let ` + getSome(is_cabi) + `(${propName}) = ${safeParamName}.${propName} { ` + pushToQueryParam(propName, propName) + ` }`; 
     }
     else {
       res = pushToQueryParam(propName, `${safeParamName}.${propName}`);
     }
 
     if (!is_required) {
-      return `if let Some(${safeParamName}) = ${safeParamName} { ${res}  }`
+      return `if let ` + getSome(is_cabi) + `(${safeParamName}) = ${safeParamName} { ${res}  }`
     }
     else {
       return res;
@@ -40,11 +41,11 @@ const serialiseObjectParam = (param, is_required = false) => {
   return `${serialisedObject.slice(0, -1)}`;
 };
 
-const serialisePrimitive = (param, is_required = false) => {
+const serialisePrimitive = (param, is_required = false, is_cabi = false) => {
   const safeParamName = toParamName(param.name);
   const inner = pushToQueryParam(safeParamName, safeParamName);
   if (!is_required) {
-    return `if let Some(${safeParamName}) = ${safeParamName} { ${inner}  }`
+    return `if let ` + getSome(is_cabi) + `(${safeParamName}) = ${safeParamName} { ${inner}  }`
   }
   else {
     return inner;
@@ -52,7 +53,7 @@ const serialisePrimitive = (param, is_required = false) => {
 };
 
 
-const createQueryStringSnippet = (params) => {
+const createQueryStringSnippet = (params, is_cabi = false) => {
   const queryParams = getParametersByType(params, "query");
 
   if (queryParams.length === 0) {
@@ -65,13 +66,13 @@ const createQueryStringSnippet = (params) => {
     let serialisedQueryParam;
     switch (queryParam.schema.type) {
       case "array":
-        serialisedQueryParam = serialiseArrayParam(queryParam, queryParam.schema._required);
+        serialisedQueryParam = serialiseArrayParam(queryParam, queryParam.schema._required, is_cabi);
         break;
       case "object":
-        serialisedQueryParam = serialiseObjectParam(queryParam, queryParam.schema._required);
+        serialisedQueryParam = serialiseObjectParam(queryParam, queryParam.schema._required, is_cabi);
         break;
       default:
-        serialisedQueryParam = serialisePrimitive(queryParam, queryParam.schema._required);
+        serialisedQueryParam = serialisePrimitive(queryParam, queryParam.schema._required, is_cabi);
         break;
     }
 

@@ -1,4 +1,13 @@
+{{#ifEquals _options.[generator.cabi] "true"}}
+use abi_stable::std_types::RHashMap as HashMap;
+{{/ifEquals}}
+{{#ifNotEquals _options.[generator.cabi] "true"}}
 use std::collections::HashMap;
+{{/ifNotEquals}}
+
+{{#ifEquals _options.[generator.cabi] "true"}}
+use abi_stable::std_types::string::RString as String;
+{{/ifEquals}}
 
 use serde::{ Serialize, Deserialize };
 
@@ -6,6 +15,9 @@ use serde::{ Serialize, Deserialize };
 // Represents an HTTP response.
 // </summary>
 #[derive(Serialize, Deserialize, Debug)]
+{{#ifEquals _options.[generator.cabi] "true"}}
+#[repr(C)]
+{{/ifEquals}}
 pub struct ForgeResponse<T> {
     // <summary>
     // Gets the typed response.
