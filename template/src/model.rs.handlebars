@@ -1,12 +1,12 @@
 use serde::{Serialize, Deserialize};
 
-{{#ifEquals _options.[generator.cabi] "true"}}
+{{#ifEquals _options.[generator.cabi_testing] "true"}}
 use abi_stable::std_types::string::RString as String;
 use abi_stable::std_types::ROption as Option;
 use abi_stable::std_types::vec::RVec as Vec;
 {{/ifEquals}}
 
-{{setVar "cabi" _options.[generator.cabi]}}
+{{setVar "cabi" _options.[generator.cabi_testing]}}
 
 {{#each components.schemas}}
 {{> model}}

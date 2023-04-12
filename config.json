@@ -3,7 +3,7 @@
     "default": "openapi-forge-project",
     "description": "The crate name for the generated project."
   },
-  "cabi": {
+  "cabi_testing": {
     "default": "false",
     "choices": ["false", "true"],
     "description": "Generate C-ABI compatible functions (also used in testing.)"

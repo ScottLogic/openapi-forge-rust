@@ -1,4 +1,9 @@
+{{#ifNotEquals _options.[generator.cabi_testing] "true"}}
 const SERVERS: [&str, {{servers.length}}] =  [{{~#each servers~}}"{{url}}"{{#unless @last}},{{/unless}}{{~/each~}}];
+{{/ifNotEquals}}
+{{#ifEquals _options.[generator.cabi_testing] "true"}}
+const SERVERS: [&str, 2] =  ["/e1", "/e2"];
+{{/ifEquals}}
 
 pub struct Configuration {
     pub base_path: String,
@@ -20,7 +25,7 @@ impl Configuration {
     }
 }
 
-{{#ifEquals _options.[generator.cabi] "true"}}
+{{#ifEquals _options.[generator.cabi_testing] "true"}}
 use abi_stable::std_types::string::RString;
 #[no_mangle]
 pub extern "C" fn c_config_new(base_path: RString) -> Box<Configuration>{

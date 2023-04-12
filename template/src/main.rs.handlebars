@@ -3,10 +3,10 @@ pub mod model;
 pub mod response;
 pub mod api_client;
 
-{{#ifEquals _options.[generator.cabi] "true"}}
+{{#ifEquals _options.[generator.cabi_testing] "true"}}
 fn main() {}
 {{/ifEquals}}
-{{#ifNotEquals _options.[generator.cabi] "true"}}
+{{#ifNotEquals _options.[generator.cabi_testing] "true"}}
 #[tokio::main]
 async fn main() {}
 {{/ifNotEquals}}

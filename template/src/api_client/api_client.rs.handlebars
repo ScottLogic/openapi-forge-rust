@@ -1,27 +1,27 @@
-{{setVar "cabi" _options.[generator.cabi]}}
-{{#ifEquals _options.[generator.cabi] "true"}}
+{{setVar "cabi" _options.[generator.cabi_testing]}}
+{{#ifEquals _options.[generator.cabi_testing] "true"}}
 use abi_stable::std_types::RHashMap as HashMap;
+use reqwest::blocking::Client;
 {{/ifEquals}}
-{{#ifNotEquals _options.[generator.cabi] "true"}}
+
+{{#ifNotEquals _options.[generator.cabi_testing] "true"}}
 use std::collections::HashMap;
+use reqwest::Client;
 {{/ifNotEquals}}
 
-
-use reqwest::Client;
 use reqwest::Url;
 
 use crate::config::Configuration;
 use crate::{response::ForgeResponse, model::*};
 
-{{#ifEquals _options.[generator.cabi] "true"}}
+{{#ifEquals _options.[generator.cabi_testing] "true"}}
 use abi_stable::std_types::string::RString as String;
 use abi_stable::std_types::ROption as Option;
 #[allow(unused_imports)]
 use abi_stable::std_types::vec::RVec as Vec;
-use async_ffi::{FfiFuture, FutureExt};
 {{/ifEquals}}
 
-{{#ifEquals _options.[generator.cabi] "true"}}
+{{#ifEquals _options.[generator.cabi_testing] "true"}}
 #[repr(C)]
 {{/ifEquals}}
 pub struct ApiClient{{_tag.name}} {
@@ -52,7 +52,7 @@ impl ApiClient{{_tag.name}} {
     {{#each _sortedParameters}}
     // <param name="{{name}}">{{description}}</param>
     {{/each}}
-    pub async fn {{toRustParamName operationId}} (
+    pub {{#ifNotEquals @root.cabi "true"}}async{{/ifNotEquals}} fn {{toRustParamName operationId}} (
         &self, 
         {{~#each _sortedParameters ~}}
             {{#ifEquals required true}}
@@ -70,6 +70,7 @@ impl ApiClient{{_tag.name}} {
             {{/if ~}}
         {{/each}}
         let url = self.config.get_base_address() + {{{setPathParameters @root.path _sortedParameters @root.cabi}}};
+        dbg!(&url);
         let request_uri = Url::parse(&url).unwrap();
         {{#if (queryParametersExist _sortedParameters)}}
         {{createQueryStringSnippet _sortedParameters @root.cabi}}
@@ -82,14 +83,17 @@ impl ApiClient{{_tag.name}} {
         .json(&body)
         {{/if}}
         .send()
-        .await.unwrap();
+        {{#ifNotEquals @root.cabi "true"}}.await{{/ifNotEquals}}
+        .unwrap();
         let status_code = response.status().as_u16();
         let headers = response
             .headers()
             .iter()
             .map(|(k, v)| (k.to_string().into(), v.to_str().unwrap().into()))
             .collect::<HashMap<_, _>>();
-        let data = response.json::<{{safeTypeConvert _response.schema true}}>().await.unwrap();
+        let data = response.json::<{{safeTypeConvert _response.schema true}}>()
+            {{#ifNotEquals @root.cabi "true"}}.await{{/ifNotEquals}}
+            .unwrap();
         ForgeResponse::new(data, status_code, headers )
     }
     {{else}}
@@ -113,7 +117,7 @@ impl ApiClient{{_tag.name}} {
 }
 
 
-{{#ifEquals _options.[generator.cabi] "true"}}
+{{#ifEquals _options.[generator.cabi_testing] "true"}}
 #[no_mangle]
 pub extern "C" fn c_api_client{{toRustParamName _tag.name}}_new(
     config: Box<Configuration>,
@@ -136,9 +140,8 @@ pub extern "C" fn c_api_client{{toRustParamName _tag.name}}_{{toRustParamName op
             {{toRustParamName name ~}}: {{~safeTypeConvert schema false}},
         {{/ifEquals}}
     {{~/each ~}}
-) -> FfiFuture<ForgeResponse<{{safeTypeConvert _response.schema true}}>> {
-    async move {
-        api_client.{{toRustParamName operationId}}(
+) -> Box<ForgeResponse<{{safeTypeConvert _response.schema true}}>> {
+        Box::new(api_client.{{toRustParamName operationId}}(
         {{~#each _sortedParameters ~}}
             {{#ifEquals required true}}
                 {{toRustParamName name ~}},
@@ -146,9 +149,7 @@ pub extern "C" fn c_api_client{{toRustParamName _tag.name}}_{{toRustParamName op
                 {{toRustParamName name ~}},
             {{/ifEquals}}
         {{~/each ~}}
-        ).await
-    }
-    .into_ffi()
+        ))
 }
 {{/if}}
 {{/ifEquals}}

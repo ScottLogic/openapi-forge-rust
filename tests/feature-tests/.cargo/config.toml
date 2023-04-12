@@ -1,0 +1,3 @@
+# Set a target folder to avoid recompilation of common generated-api assets.
+[build]
+target-dir = "target"
