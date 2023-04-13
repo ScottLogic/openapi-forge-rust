@@ -1,10 +1,11 @@
-use serde::{Serialize, Deserialize};
-
 {{#ifEquals _options.[generator.cabi_testing] "true"}}
+#![allow(unused_imports)]
 use abi_stable::std_types::string::RString as String;
 use abi_stable::std_types::ROption as Option;
 use abi_stable::std_types::vec::RVec as Vec;
 {{/ifEquals}}
+
+use serde::{Serialize, Deserialize};
 
 {{setVar "cabi" _options.[generator.cabi_testing]}}
 

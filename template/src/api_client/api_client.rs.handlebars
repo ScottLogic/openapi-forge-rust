@@ -1,5 +1,6 @@
 {{setVar "cabi" _options.[generator.cabi_testing]}}
 {{#ifEquals _options.[generator.cabi_testing] "true"}}
+#![allow(unused_imports)]
 use abi_stable::std_types::RHashMap as HashMap;
 use reqwest::blocking::Client;
 {{/ifEquals}}
@@ -85,6 +86,7 @@ impl ApiClient{{_tag.name}} {
         .send()
         {{#ifNotEquals @root.cabi "true"}}.await{{/ifNotEquals}}
         .unwrap();
+        dbg!(&response);
         let status_code = response.status().as_u16();
         let headers = response
             .headers()
@@ -125,6 +127,12 @@ pub extern "C" fn c_api_client{{toRustParamName _tag.name}}_new(
 ) -> Box<ApiClient{{_tag.name}}>{
     Box::new(ApiClient{{_tag.name}} { config: *config, client: *client })
 }
+
+// Give drop api access since library user doesn't necessarily know the memory layout.
+#[no_mangle]
+pub extern "C" fn c_api_client{{toRustParamName _tag.name}}_drop(
+    _api_client: Box<ApiClient{{_tag.name}}>,
+){}
 {{#each paths}}
 {{~setVar "path" @key}}
 {{~#each this}}

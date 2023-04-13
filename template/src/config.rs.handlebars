@@ -2,7 +2,7 @@
 const SERVERS: [&str, {{servers.length}}] =  [{{~#each servers~}}"{{url}}"{{#unless @last}},{{/unless}}{{~/each~}}];
 {{/ifNotEquals}}
 {{#ifEquals _options.[generator.cabi_testing] "true"}}
-const SERVERS: [&str, 2] =  ["/e1", "/e2"];
+const SERVERS: [&str, 2] =  ["", ""];
 {{/ifEquals}}
 
 pub struct Configuration {
@@ -30,5 +30,11 @@ use abi_stable::std_types::string::RString;
 #[no_mangle]
 pub extern "C" fn c_config_new(base_path: RString) -> Box<Configuration>{
     Box::new(Configuration::new(&base_path))
+}
+
+#[no_mangle]
+pub extern "C" fn c_config_select_server_index(mut config: Box<Configuration>, idx: u8) -> Box<Configuration>{
+    config.selected_server_index = idx as usize;
+    config
 }
 {{/ifEquals}}
