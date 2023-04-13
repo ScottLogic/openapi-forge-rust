@@ -41,7 +41,7 @@ async fn requested(_w: &mut ForgeWorld, url: String) -> Result<()> {
     if let Some(server) = SERVER.get() {
         if let Some(req) = server.received_requests().await {
             assert!(req.len() > 0);
-            let last_req = req.iter().last().unwrap();
+            let last_req = &req[ req.len() - 1 ];
             let expected_url = Url::parse(&url)?;
             let actual_url = &last_req.url;
             // only check the path since we do full http mock

@@ -38,9 +38,13 @@ pub fn run_config_idx_change(w: &mut ForgeWorld, idx: u8) -> Result<()> {
             let func: libloading::Symbol<
                 extern "C" fn(Box<Configuration>, u8) -> Box<Configuration>,
             > = library.get(b"c_config_select_server_index")?;
-            let new_config = func(config.unwrap(), idx);
-            w.config = Some(new_config);
-            Ok(())
+            if let Some(config) = config {
+                let new_config = func(config, idx);
+                w.config = Some(new_config);
+                Ok(())
+            } else {
+                panic!("run_config_idx_change cfg")
+            }
         } else {
             panic!("run_config_idx_change")
         }
@@ -68,8 +72,14 @@ pub fn get_api_client(w: &mut ForgeWorld) -> Result<Box<ApiClient>> {
             let func: libloading::Symbol<
                 extern "C" fn(Box<Configuration>, Box<Client>) -> Box<ApiClient>,
             > = library.get(b"c_api_client_new")?;
-            let c = func(config.unwrap(), client.unwrap());
-            Ok(c)
+            match (config, client) {
+                (Some(config), Some(client)) => {
+                    let api_client = func(config, client);
+                    Ok(api_client)     
+                }
+                _ => panic!("get_api_client cfg")
+            }
+
         } else {
             panic!("get_api_client")
         }
@@ -94,19 +104,23 @@ pub fn drop_api_client_if_exists(w: &mut ForgeWorld) -> Result<()> {
     }
 }
 
-pub fn run_method_no_params(w: &mut ForgeWorld, method_name: &str) -> Result<()> {
+pub fn run_method_no_params(w: &mut ForgeWorld, method_name: &str) -> Result<Box<ForgeResponse<RString>>> {
     unsafe {
         let c_method = format!("c_api_client_{}", method_name);
         let c_method_bytes = c_method.as_bytes();
         if let Some(library) = &w.library {
             let func: libloading::Symbol<
-                extern "C" fn(Box<ApiClient>) -> Box<ForgeResponse<String>>,
+                extern "C" fn(Box<ApiClient>) -> Box<ForgeResponse<RString>>,
             > = library.get(c_method_bytes)?;
             let api_client = w.api_client.take();
-            let _r = func(api_client.unwrap());
+            if let Some(api_client) = api_client {
+                let ret = func(api_client);
+                Ok(ret)
+            } else {
+                panic!("run_method_no_params api_client")
+            }
         } else {
             panic!("run_method_no_params")
         }
     }
-    Ok(())
 }

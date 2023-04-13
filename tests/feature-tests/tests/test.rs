@@ -59,7 +59,7 @@ impl ForgeWorld {
 #[tokio::main]
 async fn main() -> Result<()> {
     util::clean_up().await?;
-    mock::init_mock_server(PORT).await;
+    mock::init_mock_server(PORT).await?;
     ForgeWorld::run("tests/features/").await;
     Ok(())
 }
