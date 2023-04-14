@@ -1,4 +1,4 @@
-use abi_stable::std_types::RString;
+use abi_stable::std_types::{RString, ROption};
 use anyhow::Result;
 use libloading::Library;
 
@@ -116,6 +116,57 @@ pub fn run_method_no_params(
             let api_client = w.api_client.take();
             if let Some(api_client) = api_client {
                 let ret = func(api_client);
+                Ok(ret)
+            } else {
+                panic!("run_method_no_params api_client")
+            }
+        } else {
+            panic!("run_method_no_params")
+        }
+    }
+}
+
+pub fn run_method_one_param<T>(
+    w: &mut ForgeWorld,
+    method_name: &str,
+    arg_1: ROption<T>,
+) -> Result<Box<ForgeResponse<RString>>> {
+    unsafe {
+        let c_method = format!("c_api_client_{}", method_name);
+        let c_method_bytes = c_method.as_bytes();
+        if let Some(library) = &w.library {
+            let func: libloading::Symbol<
+                extern "C" fn(Box<ApiClient>, ROption<T>) -> Box<ForgeResponse<RString>>
+            > = library.get(c_method_bytes)?;
+            let api_client = w.api_client.take();
+            if let Some(api_client) = api_client {
+                let ret = func(api_client, arg_1);
+                Ok(ret)
+            } else {
+                panic!("run_method_no_params api_client")
+            }
+        } else {
+            panic!("run_method_no_params")
+        }
+    }
+}
+
+pub fn run_method_two_params<T: std::fmt::Debug, U: std::fmt::Debug>(
+    w: &mut ForgeWorld,
+    method_name: &str,
+    arg_1: ROption<T>,
+    arg_2: ROption<U>,
+) -> Result<Box<ForgeResponse<RString>>> {
+    unsafe {
+        let c_method = format!("c_api_client_{}", method_name);
+        let c_method_bytes = c_method.as_bytes();
+        if let Some(library) = &w.library {
+            let func: libloading::Symbol<
+                extern "C" fn(Box<ApiClient>, ROption<T>, ROption<U>) -> Box<ForgeResponse<RString>>
+            > = library.get(c_method_bytes)?;
+            let api_client = w.api_client.take();
+            if let Some(api_client) = api_client {
+                let ret = func(api_client, arg_1, arg_2);
                 Ok(ret)
             } else {
                 panic!("run_method_no_params api_client")

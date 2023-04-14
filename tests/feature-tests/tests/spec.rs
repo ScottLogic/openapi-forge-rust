@@ -1,11 +1,16 @@
+use std::collections::HashSet;
+use std::path::Path;
+
+use abi_stable::std_types::{ROption, RString};
 use anyhow::Result;
 use convert_case::Casing;
-use cucumber::{ gherkin::Step, given, then, when };
+use cucumber::{gherkin::Step, given, then, when};
 use url::Url;
-use wiremock::{ matchers::any, Mock, ResponseTemplate };
+use wiremock::{matchers::any, Mock, ResponseTemplate};
 
+use crate::ffi::{run_method_one_param, run_method_two_params};
 use crate::SERVER;
-use crate::{ ffi::run_method_no_params, util, ForgeWorld };
+use crate::{ffi::run_method_no_params, util, ForgeWorld};
 
 #[given(expr = "an API with the following specification")]
 async fn api_specification(w: &mut ForgeWorld, step: &Step) -> Result<()> {
@@ -30,14 +35,13 @@ async fn call_method_without_params(w: &mut ForgeWorld, method_name: String) -> 
     // add mock
     if let Some(server) = SERVER.get() {
         Mock::given(any())
-            .respond_with(
-                ResponseTemplate::new(200).set_body_json({
-                    let a = format!("{{'a':'{}'}}", method_name);
-                    a
-                })
-            )
+            .respond_with(ResponseTemplate::new(200).set_body_json({
+                let a = format!("{{'a':'{}'}}", method_name);
+                a
+            }))
             .expect(1)
-            .mount(server).await;
+            .mount(server)
+            .await;
     }
     // run method
     run_method_no_params(w, &method_name)?;
@@ -52,8 +56,13 @@ async fn requested(_w: &mut ForgeWorld, url: String) -> Result<()> {
             let last_req = &req[req.len() - 1];
             let expected_url = Url::parse(&url)?;
             let actual_url = &last_req.url;
-            // only check the path since we do full http mock
-            assert_eq!(expected_url.path(), actual_url.path());
+            // only check the path + query
+            let expected_path = Path::new(expected_url.path());
+            let actual_path = Path::new(actual_url.path());
+            assert_eq!(expected_path, actual_path);
+            let expected_query = expected_url.query_pairs().collect::<HashSet<_>>();
+            let actual_query = actual_url.query_pairs().collect::<HashSet<_>>();
+            assert_eq!(expected_query, actual_query);
         }
     }
 
@@ -69,3 +78,61 @@ async fn when_selecting_index(w: &mut ForgeWorld, idx: u8) -> Result<()> {
     w.set_reset_client(Some(idx))?;
     Ok(())
 }
+
+#[when(expr = "calling the method {word} with parameters {word}")]
+async fn call_method_with_params(
+    w: &mut ForgeWorld,
+    method_name: String,
+    params: String,
+) -> Result<()> {
+    let method_name = method_name.to_case(convert_case::Case::Snake);
+    let trimmed = &params[1..params.len() - 1];
+    let list = trimmed.split(',').collect::<Vec<_>>();
+    // add mock
+    if let Some(server) = SERVER.get() {
+        Mock::given(any())
+            .respond_with(ResponseTemplate::new(200).set_body_json("{}"))
+            .expect(1)
+            .mount(server)
+            .await;
+    }
+    // run method
+    match list.len() {
+        1 => match list[0].parse::<i32>() {
+            Ok(i) => run_method_one_param(w, &method_name, ROption::RSome(i))?,
+            Err(_) => {
+                run_method_one_param(w, &method_name, ROption::RSome(RString::from(list[0])))?
+            }
+        },
+        2 => match (list[0].parse::<i32>(), list[1].parse::<i32>()) {
+            (Ok(i), Ok(j)) => {
+                run_method_two_params(w, &method_name, ROption::RSome(i), ROption::RSome(j))?
+            }
+            (Ok(i), Err(_)) => run_method_two_params(
+                w,
+                &method_name,
+                ROption::RSome(i),
+                ROption::RSome(RString::from(list[1])),
+            )?,
+            (Err(_), Ok(j)) => run_method_two_params(
+                w,
+                &method_name,
+                ROption::RSome(RString::from(list[0])),
+                ROption::RSome(j),
+            )?,
+            (Err(_), Err(_)) => run_method_two_params(
+                w,
+                &method_name,
+                ROption::RSome(RString::from(list[0])),
+                ROption::RSome(RString::from(list[1])),
+            )?,
+        },
+        3 => {
+            todo!()
+        }
+        _ => panic!("Too many arguments"),
+    };
+    Ok(())
+}
+
+// calling the method getThings with parameters

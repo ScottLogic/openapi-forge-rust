@@ -2,7 +2,7 @@
 const SERVERS: [&str, {{servers.length}}] =  [{{~#each servers~}}"{{url}}"{{#unless @last}},{{/unless}}{{~/each~}}];
 {{/ifNotEquals}}
 {{#ifEquals _options.[generator.cabi_testing] "true"}}
-const SERVERS: [&str, 2] =  ["", ""];
+const SERVERS: [&str, {{getOptionalLen servers.length}}] =  [{{~#each servers~}}"{{urlPath url}}"{{#unless @last}},{{/unless}}{{~/each~}}];
 {{/ifEquals}}
 
 pub struct Configuration {
@@ -21,7 +21,11 @@ impl Configuration {
     }
 
     pub fn get_base_address(&self) -> String {
-        self.base_path.to_owned() + SERVERS[self.selected_server_index]
+        if SERVERS.len() > 0 {
+            self.base_path.to_owned() + SERVERS[self.selected_server_index]
+        } else {
+            self.base_path.to_owned()
+        }
     }
 }
 
