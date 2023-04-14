@@ -12,6 +12,8 @@ use reqwest::Client;
 
 use reqwest::Url;
 
+use anyhow::Result;
+
 use crate::config::Configuration;
 use crate::{response::ForgeResponse, model::*};
 
@@ -62,7 +64,7 @@ impl ApiClient{{_tag.name}} {
                 {{toRustParamName name ~}}: {{~safeTypeConvert schema false}},
             {{/ifEquals}}
         {{~/each ~}}
-    ) -> ForgeResponse<{{safeTypeConvert _response.schema true}}>
+    ) -> Result<ForgeResponse<{{safeTypeConvert _response.schema true}}>>
     {
         {{#each _sortedParameters}}
             {{#if (hasDefault schema)}}
@@ -72,7 +74,7 @@ impl ApiClient{{_tag.name}} {
         {{/each}}
         let url = self.config.get_base_address() + {{{setPathParameters @root.path _sortedParameters @root.cabi}}};
         // dbg!(&url);
-        let request_uri = Url::parse(&url).unwrap();
+        let request_uri = Url::parse(&url)?;
         {{#if (queryParametersExist _sortedParameters)}}
         {{createQueryStringSnippet _sortedParameters @root.cabi}}
         {{/if}}
@@ -84,19 +86,17 @@ impl ApiClient{{_tag.name}} {
         .json(&body)
         {{/if}}
         .send()
-        {{#ifNotEquals @root.cabi "true"}}.await{{/ifNotEquals}}
-        .unwrap();
+        {{#ifNotEquals @root.cabi "true"}}.await{{/ifNotEquals}}?;
         // dbg!(&response);
         let status_code = response.status().as_u16();
         let headers = response
             .headers()
             .iter()
-            .map(|(k, v)| (k.to_string().into(), v.to_str().unwrap().into()))
+            .filter_map(|(k, v)| Some((k.to_string().into(), v.to_str().ok()?.into())))
             .collect::<HashMap<_, _>>();
         let data = response.json::<{{safeTypeConvert _response.schema true}}>()
-            {{#ifNotEquals @root.cabi "true"}}.await{{/ifNotEquals}}
-            .unwrap();
-        ForgeResponse::new(data, status_code, headers )
+            {{#ifNotEquals @root.cabi "true"}}.await{{/ifNotEquals}}?;
+        Ok(ForgeResponse::new(data, status_code, headers))
     }
     {{else}}
     #[allow(unused_variables)]
@@ -108,7 +108,7 @@ impl ApiClient{{_tag.name}} {
                 {{toRustParamName name ~}}: {{~safeTypeConvert schema false}},
             {{/ifEquals}}
         {{~/each ~}}
-    ) -> ForgeResponse<{{safeTypeConvert _response.schema true}}>
+    ) -> Result<ForgeResponse<{{safeTypeConvert _response.schema true}}>>
     {
         panic!("Operation `{{toRustParamName operationId}}` most likely does not support json encoded requests which are not supported by openapi forge.", );
     }    
@@ -157,7 +157,7 @@ pub extern "C" fn c_api_client{{toRustParamName _tag.name}}_{{toRustParamName op
                 {{toRustParamName name ~}},
             {{/ifEquals}}
         {{~/each ~}}
-        ))
+        ).unwrap())
 }
 {{/if}}
 {{/ifEquals}}
