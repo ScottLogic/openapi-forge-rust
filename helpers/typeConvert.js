@@ -39,7 +39,10 @@ const fromType = (propType, additionalProperties, items, is_required) => {
     // inline object definition
     case "object":
       if (additionalProperties) {
-        return `HashMap<String,${typeConvert(additionalProperties, is_required)}>`;
+        return `HashMap<String,${typeConvert(
+          additionalProperties,
+          is_required
+        )}>`;
       } else {
         return "Object";
       }

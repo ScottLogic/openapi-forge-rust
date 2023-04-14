@@ -6,7 +6,7 @@ const getSome = require("./getSome");
 const setPathParameters = (path, sortedParams, is_cabi = false) => {
   const pathParams = getParametersByType(sortedParams, "path");
   if (pathParams.length === 0) {
-    return `"` +path + `"`;
+    return `"` + path + `"`;
   }
 
   let res = new Handlebars.SafeString(
@@ -33,14 +33,17 @@ const setPathParameters = (path, sortedParams, is_cabi = false) => {
           }
           return serialisedObject.slice(0, -3);
         }
-        default:
-          {
-            if (pathParam.required) {
-              return `", &${safeParamName}.to_string(), "`;
-            } else {
-              return `", &{ if let ` + getSome(is_cabi) + `(${safeParamName}) = ${safeParamName} { ${safeParamName}.to_string() } else { "".into() } }, "`
-            }
+        default: {
+          if (pathParam.required) {
+            return `", &${safeParamName}.to_string(), "`;
+          } else {
+            return (
+              `", &{ if let ` +
+              getSome(is_cabi) +
+              `(${safeParamName}) = ${safeParamName} { ${safeParamName}.to_string() } else { "".into() } }, "`
+            );
           }
+        }
       }
     })
   );

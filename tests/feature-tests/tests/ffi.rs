@@ -3,11 +3,7 @@ use anyhow::Result;
 use libloading::Library;
 
 use crate::mock::PORT;
-use crate::{
-    data::{ApiClient, Client, Configuration, ForgeResponse},
-    // util::GENERATED_SHARED_OBJECT_PATH,
-    ForgeWorld,
-};
+use crate::{ data::{ ApiClient, Client, Configuration, ForgeResponse }, ForgeWorld };
 
 pub fn get_generated_library(hash: u64) -> Result<Library> {
     // SAFETY
@@ -21,11 +17,12 @@ pub fn get_generated_library(hash: u64) -> Result<Library> {
 pub fn get_config(w: &mut ForgeWorld) -> Result<Box<Configuration>> {
     unsafe {
         if let Some(library) = &w.library {
-            let func: libloading::Symbol<extern "C" fn(RString) -> Box<Configuration>> =
-                library.get(b"c_config_new")?;
+            let func: libloading::Symbol<
+                extern "C" fn(RString) -> Box<Configuration>
+            > = library.get(b"c_config_new")?;
             let c = func(format!("http://127.0.0.1:{}", PORT).into());
             Ok(c)
-        } else {        
+        } else {
             panic!("get_config")
         }
     }
@@ -36,7 +33,7 @@ pub fn run_config_idx_change(w: &mut ForgeWorld, idx: u8) -> Result<()> {
         if let Some(library) = &w.library {
             let config = w.config.take();
             let func: libloading::Symbol<
-                extern "C" fn(Box<Configuration>, u8) -> Box<Configuration>,
+                extern "C" fn(Box<Configuration>, u8) -> Box<Configuration>
             > = library.get(b"c_config_select_server_index")?;
             if let Some(config) = config {
                 let new_config = func(config, idx);
@@ -54,8 +51,9 @@ pub fn run_config_idx_change(w: &mut ForgeWorld, idx: u8) -> Result<()> {
 pub fn get_http_client(w: &mut ForgeWorld) -> Result<Box<Client>> {
     unsafe {
         if let Some(library) = &w.library {
-            let func: libloading::Symbol<extern "C" fn() -> Box<Client>> =
-                library.get(b"c_reqwest_client_new")?;
+            let func: libloading::Symbol<extern "C" fn() -> Box<Client>> = library.get(
+                b"c_reqwest_client_new"
+            )?;
             let c = func();
             Ok(c)
         } else {
@@ -70,16 +68,15 @@ pub fn get_api_client(w: &mut ForgeWorld) -> Result<Box<ApiClient>> {
         let client = w.http_client.take();
         if let Some(library) = &w.library {
             let func: libloading::Symbol<
-                extern "C" fn(Box<Configuration>, Box<Client>) -> Box<ApiClient>,
+                extern "C" fn(Box<Configuration>, Box<Client>) -> Box<ApiClient>
             > = library.get(b"c_api_client_new")?;
             match (config, client) {
                 (Some(config), Some(client)) => {
                     let api_client = func(config, client);
-                    Ok(api_client)     
+                    Ok(api_client)
                 }
-                _ => panic!("get_api_client cfg")
+                _ => panic!("get_api_client cfg"),
             }
-
         } else {
             panic!("get_api_client")
         }
@@ -93,24 +90,28 @@ pub fn drop_api_client_if_exists(w: &mut ForgeWorld) -> Result<()> {
         let api_client = w.api_client.take();
         if let Some(api_client) = api_client {
             if let Some(library) = &w.library {
-                let func: libloading::Symbol<extern "C" fn(Box<ApiClient>)> =
-                    library.get(b"c_api_client_drop")?;
+                let func: libloading::Symbol<extern "C" fn(Box<ApiClient>)> = library.get(
+                    b"c_api_client_drop"
+                )?;
                 func(api_client);
             } else {
-                panic!("get_api_client")
+                panic!("get_api_client");
             }
         }
         Ok(())
     }
 }
 
-pub fn run_method_no_params(w: &mut ForgeWorld, method_name: &str) -> Result<Box<ForgeResponse<RString>>> {
+pub fn run_method_no_params(
+    w: &mut ForgeWorld,
+    method_name: &str
+) -> Result<Box<ForgeResponse<RString>>> {
     unsafe {
         let c_method = format!("c_api_client_{}", method_name);
         let c_method_bytes = c_method.as_bytes();
         if let Some(library) = &w.library {
             let func: libloading::Symbol<
-                extern "C" fn(Box<ApiClient>) -> Box<ForgeResponse<RString>>,
+                extern "C" fn(Box<ApiClient>) -> Box<ForgeResponse<RString>>
             > = library.get(c_method_bytes)?;
             let api_client = w.api_client.take();
             if let Some(api_client) = api_client {

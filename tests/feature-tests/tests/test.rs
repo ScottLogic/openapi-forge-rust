@@ -4,12 +4,16 @@ mod mock;
 mod spec;
 mod util;
 
-use anyhow::{Ok, Result};
+use anyhow::{ Ok, Result };
 
 use cucumber::World;
 use data::*;
 use ffi::{
-    drop_api_client_if_exists, get_api_client, get_config, get_http_client, run_config_idx_change,
+    drop_api_client_if_exists,
+    get_api_client,
+    get_config,
+    get_http_client,
+    run_config_idx_change,
 };
 use libloading::Library;
 use mock::SERVER;
@@ -62,9 +66,7 @@ impl ForgeWorld {
 async fn main() -> Result<()> {
     util::create_project_parent_dir().await?;
     mock::init_mock_server(PORT).await?;
-    ForgeWorld::cucumber()
-        .run("tests/features")
-        .await;
+    ForgeWorld::cucumber().run("tests/features").await;
     util::clean_up_all().await?;
     Ok(())
 }
