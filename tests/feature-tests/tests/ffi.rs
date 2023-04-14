@@ -5,15 +5,15 @@ use libloading::Library;
 use crate::mock::PORT;
 use crate::{
     data::{ApiClient, Client, Configuration, ForgeResponse},
-    util::GENERATED_SHARED_OBJECT_PATH,
+    // util::GENERATED_SHARED_OBJECT_PATH,
     ForgeWorld,
 };
 
-pub fn get_generated_library() -> Result<Library> {
+pub fn get_generated_library(hash: u64) -> Result<Library> {
     // SAFETY
     // This call should be always followed after the generated api is compiled.
     unsafe {
-        let lib = libloading::Library::new(GENERATED_SHARED_OBJECT_PATH)?;
+        let lib = libloading::Library::new(crate::util::get_generated_shared_object_path!(hash))?;
         Ok(lib)
     }
 }
@@ -25,7 +25,7 @@ pub fn get_config(w: &mut ForgeWorld) -> Result<Box<Configuration>> {
                 library.get(b"c_config_new")?;
             let c = func(format!("http://127.0.0.1:{}", PORT).into());
             Ok(c)
-        } else {
+        } else {        
             panic!("get_config")
         }
     }

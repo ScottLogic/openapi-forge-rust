@@ -1,4 +1,4 @@
-Feature: Confihguration options
+Feature: Configuration options
 
   Scenario: When there are multiple servers, the user can select which configuration to use
     Given an API with the following specification

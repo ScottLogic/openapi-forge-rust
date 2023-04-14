@@ -1,20 +1,24 @@
 use anyhow::Result;
 use convert_case::Casing;
-use cucumber::{given, gherkin::Step, when, then};
+use cucumber::{gherkin::Step, given, then, when};
 use url::Url;
-use wiremock::{Mock, matchers::any, ResponseTemplate};
+use wiremock::{matchers::any, Mock, ResponseTemplate};
 
 use crate::SERVER;
-use crate::{ForgeWorld, util, api::run_method_no_params};
-
+use crate::{ffi::run_method_no_params, util, ForgeWorld};
 
 #[given(expr = "an API with the following specification")]
 async fn api_specification(w: &mut ForgeWorld, step: &Step) -> Result<()> {
+    // schema
     if let Some(spec) = step.docstring() {
-        util::write_schema_to_file(spec).await?;
+        let hash = util::hash_an_object(spec);
+        w.library_name_modifier = Some(hash);
+        util::write_schema_to_file(spec, w.library_name_modifier.unwrap()).await?;
     }
-    util::forge().await?;
-    util::compile_generated_api().await?;
+    // forge + compile + set
+    util::forge(w.library_name_modifier.unwrap()).await?;
+    util::compile_generated_api(w.library_name_modifier.unwrap()).await?;
+    // maybe move to another location
     w.set_library()?;
     w.set_reset_client(None)?;
     Ok(())
@@ -26,7 +30,10 @@ async fn call_method_without_params(w: &mut ForgeWorld, method_name: String) -> 
     // add mock
     if let Some(server) = SERVER.get() {
         Mock::given(any())
-            .respond_with(ResponseTemplate::new(200).set_body_json("{'a':'a'}"))
+            .respond_with(ResponseTemplate::new(200).set_body_json({
+                let a = format!("{{'a':'{}'}}", method_name);
+                a
+            }))
             .expect(1)
             .mount(server)
             .await;
@@ -41,7 +48,7 @@ async fn requested(_w: &mut ForgeWorld, url: String) -> Result<()> {
     if let Some(server) = SERVER.get() {
         if let Some(req) = server.received_requests().await {
             assert!(req.len() > 0);
-            let last_req = &req[ req.len() - 1 ];
+            let last_req = &req[req.len() - 1];
             let expected_url = Url::parse(&url)?;
             let actual_url = &last_req.url;
             // only check the path since we do full http mock

@@ -8,7 +8,7 @@ const isRequired = (typeDef) => {
 }
 
 const pushToQueryParam = (name, value) => 
-  `query_params.push(("${name}".into(), ${value}.into()));`
+  `query_params.push(("${name}".to_string().into(), ${value}.to_string().into()));`
 
 const serialiseArrayParam = (param, is_required = false) => {
   const safeParamName = toParamName(param.name);
