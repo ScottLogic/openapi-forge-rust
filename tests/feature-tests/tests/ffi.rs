@@ -102,16 +102,17 @@ pub fn drop_api_client_if_exists(w: &mut ForgeWorld) -> Result<()> {
     }
 }
 
-pub fn run_method_no_params(
+
+pub fn run_method_no_params_with_return<T>(
     w: &mut ForgeWorld,
     method_name: &str
-) -> Result<Box<ForgeResponse<RString>>> {
+) -> Result<Box<ForgeResponse<T>>> {
     unsafe {
         let c_method = format!("c_api_client_{}", method_name);
         let c_method_bytes = c_method.as_bytes();
         if let Some(library) = &w.library {
             let func: libloading::Symbol<
-                extern "C" fn(Box<ApiClient>) -> Box<ForgeResponse<RString>>
+                extern "C" fn(Box<ApiClient>) -> Box<ForgeResponse<T>>
             > = library.get(c_method_bytes)?;
             let api_client = w.api_client.take();
             if let Some(api_client) = api_client {

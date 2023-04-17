@@ -31,4 +31,12 @@ pub struct {{toClassName @key}}
     pub {{toRustParamName @key}}: {{{safeTypeConvert this @root.is_required}}},
   {{/each}}
 }
-    
+
+{{#ifEquals @root.cabi "true"}}
+pub extern "C" fn c_verify{{toRustParamName @key}}(o: Box<ForgeResponse<{{toClassName @key}}>>) {
+    // Deconstruct the struct as a verification
+    {{#each properties}}
+    let _{{toRustParamName @key}} = o.data.{{toRustParamName @key}};
+    {{/each}}
+}
+{{/ifEquals}}

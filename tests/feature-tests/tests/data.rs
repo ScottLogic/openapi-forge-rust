@@ -24,3 +24,9 @@ pub struct ForgeResponse<T> {
     _private: [u8; 0],
     _phantom: PhantomData<T>,
 }
+
+#[derive(Debug)]
+#[repr(C)]
+pub struct FFIObject {
+    _private: [u8; 0],
+}

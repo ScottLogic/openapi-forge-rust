@@ -3,16 +3,17 @@ use std::path::Path;
 use std::str::FromStr;
 
 use abi_stable::std_types::{ROption, RString};
-use anyhow::{Result, bail};
+use anyhow::{bail, Context, Result};
 use convert_case::Casing;
 use cucumber::{gherkin::Step, given, then, when};
 use url::Url;
 use wiremock::http::Method;
 use wiremock::{matchers::any, Mock, ResponseTemplate};
 
-use crate::ffi::{run_method_one_param, run_method_two_params};
+use crate::data::FFIObject;
+use crate::ffi::{run_method_one_param, run_method_two_params, run_method_no_params_with_return};
 use crate::SERVER;
-use crate::{ffi::run_method_no_params, util, ForgeWorld};
+use crate::{util, ForgeWorld};
 
 #[given(expr = "an API with the following specification")]
 async fn api_specification(w: &mut ForgeWorld, step: &Step) -> Result<()> {
@@ -21,6 +22,8 @@ async fn api_specification(w: &mut ForgeWorld, step: &Step) -> Result<()> {
         let hash = util::hash_an_object(spec);
         w.library_name_modifier = Some(hash);
         util::write_schema_to_file(spec, w.library_name_modifier.unwrap()).await?;
+    } else {
+        bail!("API spec not found");
     }
     // forge + compile + set
     util::forge(w.library_name_modifier.unwrap()).await?;
@@ -47,7 +50,7 @@ async fn call_method_without_params(w: &mut ForgeWorld, method_name: String) -> 
             .await;
     }
     // run method
-    run_method_no_params(w, &method_name)?;
+    run_method_no_params_with_return::<RString>(w, &method_name)?;
     Ok(())
 }
 
@@ -57,51 +60,28 @@ async fn call_spied_method_without_params(w: &mut ForgeWorld, method_name: Strin
     Ok(())
 }
 
-#[then(expr = "the requested URL should be {word}")]
-async fn requested_url(_w: &mut ForgeWorld, url: String) -> Result<()> {
+#[when(expr = "calling the method {word} and the server responds with")]
+async fn call_method_with_server_responds(
+    w: &mut ForgeWorld,
+    method_name: String,
+    step: &Step,
+) -> Result<()> {
+    // schema
+    let response_body = step.docstring().context("response body not found").unwrap().trim();
+    let method_name = method_name.to_case(convert_case::Case::Snake);
+    // add mock
     if let Some(server) = SERVER.get() {
-        if let Some(req) = server.received_requests().await {
-            assert!(req.len() > 0);
-            let last_req = &req[req.len() - 1];
-            let expected_url = Url::parse(&url)?;
-            let actual_url = &last_req.url;
-            // only check the path + query
-            let expected_path = Path::new(expected_url.path());
-            let actual_path = Path::new(actual_url.path());
-            assert_eq!(expected_path, actual_path);
-            let expected_query = expected_url.query_pairs().collect::<HashSet<_>>();
-            let actual_query = actual_url.query_pairs().collect::<HashSet<_>>();
-            assert_eq!(expected_query, actual_query);
-        }
+        Mock::given(any())
+            .respond_with(ResponseTemplate::new(200).set_body_raw(
+                response_body,
+                "application/json"
+            ))
+            .expect(1)
+            .mount(server)
+            .await;
     }
-
-    // remove mocks
-    if let Some(server) = SERVER.get() {
-        server.reset().await;
-    }
-    Ok(())
-}
-
-#[then(expr = "the request method should be of type {word}")]
-async fn requested_type(_w: &mut ForgeWorld, request_type: String) -> Result<()> {
-    if let Some(server) = SERVER.get() {
-        if let Some(req) = server.received_requests().await {
-            assert!(req.len() > 0);
-            let last_req = &req[req.len() - 1];
-            let expected_method = Method::from_str(&request_type);
-            match expected_method {
-                Ok(method) => { 
-                    assert_eq!(last_req.method, method); 
-                },
-                Err(e) => bail!(e),
-            }
-        }
-    }
-
-    // remove mocks
-    if let Some(server) = SERVER.get() {
-        server.reset().await;
-    }
+    // run method
+    let _ffi_object = run_method_no_params_with_return::<FFIObject>(w, &method_name)?;
     Ok(())
 }
 
@@ -167,4 +147,56 @@ async fn call_method_with_params(
     Ok(())
 }
 
-// calling the method getThings with parameters
+#[then(expr = "the requested URL should be {word}")]
+async fn requested_url(_w: &mut ForgeWorld, url: String) -> Result<()> {
+    if let Some(server) = SERVER.get() {
+        if let Some(req) = server.received_requests().await {
+            assert!(req.len() > 0);
+            let last_req = &req[req.len() - 1];
+            let expected_url = Url::parse(&url)?;
+            let actual_url = &last_req.url;
+            // only check the path + query
+            let expected_path = Path::new(expected_url.path());
+            let actual_path = Path::new(actual_url.path());
+            assert_eq!(expected_path, actual_path);
+            let expected_query = expected_url.query_pairs().collect::<HashSet<_>>();
+            let actual_query = actual_url.query_pairs().collect::<HashSet<_>>();
+            assert_eq!(expected_query, actual_query);
+        }
+    }
+
+    // remove mocks
+    if let Some(server) = SERVER.get() {
+        server.reset().await;
+    }
+    Ok(())
+}
+
+#[then(expr = "the request method should be of type {word}")]
+async fn requested_type_should_be(_w: &mut ForgeWorld, request_type: String) -> Result<()> {
+    if let Some(server) = SERVER.get() {
+        if let Some(req) = server.received_requests().await {
+            assert!(req.len() > 0);
+            let last_req = &req[req.len() - 1];
+            let expected_method = Method::from_str(&request_type);
+            match expected_method {
+                Ok(method) => {
+                    assert_eq!(last_req.method, method);
+                }
+                Err(e) => bail!(e),
+            }
+        }
+    }
+
+    // remove mocks
+    if let Some(server) = SERVER.get() {
+        server.reset().await;
+    }
+    Ok(())
+}
+
+#[then(expr = "the response should be of type {word}")]
+async fn response_type_should_be(_w: &mut ForgeWorld, response_type: String) -> Result<()> {
+    // TODO
+    Ok(())
+}
