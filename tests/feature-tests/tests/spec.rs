@@ -1,11 +1,13 @@
 use std::collections::HashSet;
 use std::path::Path;
+use std::str::FromStr;
 
 use abi_stable::std_types::{ROption, RString};
-use anyhow::Result;
+use anyhow::{Result, bail};
 use convert_case::Casing;
 use cucumber::{gherkin::Step, given, then, when};
 use url::Url;
+use wiremock::http::Method;
 use wiremock::{matchers::any, Mock, ResponseTemplate};
 
 use crate::ffi::{run_method_one_param, run_method_two_params};
@@ -35,8 +37,9 @@ async fn call_method_without_params(w: &mut ForgeWorld, method_name: String) -> 
     // add mock
     if let Some(server) = SERVER.get() {
         Mock::given(any())
-            .respond_with(ResponseTemplate::new(200).set_body_json({
-                let a = format!("{{'a':'{}'}}", method_name);
+            .respond_with(ResponseTemplate::new(200).set_body_string({
+                let a = format!("{}", method_name);
+                // dbg!(&a);
                 a
             }))
             .expect(1)
@@ -48,8 +51,14 @@ async fn call_method_without_params(w: &mut ForgeWorld, method_name: String) -> 
     Ok(())
 }
 
+#[when(expr = "calling the spied method {word} without params")]
+async fn call_spied_method_without_params(w: &mut ForgeWorld, method_name: String) -> Result<()> {
+    call_method_without_params(w, method_name).await?;
+    Ok(())
+}
+
 #[then(expr = "the requested URL should be {word}")]
-async fn requested(_w: &mut ForgeWorld, url: String) -> Result<()> {
+async fn requested_url(_w: &mut ForgeWorld, url: String) -> Result<()> {
     if let Some(server) = SERVER.get() {
         if let Some(req) = server.received_requests().await {
             assert!(req.len() > 0);
@@ -63,6 +72,29 @@ async fn requested(_w: &mut ForgeWorld, url: String) -> Result<()> {
             let expected_query = expected_url.query_pairs().collect::<HashSet<_>>();
             let actual_query = actual_url.query_pairs().collect::<HashSet<_>>();
             assert_eq!(expected_query, actual_query);
+        }
+    }
+
+    // remove mocks
+    if let Some(server) = SERVER.get() {
+        server.reset().await;
+    }
+    Ok(())
+}
+
+#[then(expr = "the request method should be of type {word}")]
+async fn requested_type(_w: &mut ForgeWorld, request_type: String) -> Result<()> {
+    if let Some(server) = SERVER.get() {
+        if let Some(req) = server.received_requests().await {
+            assert!(req.len() > 0);
+            let last_req = &req[req.len() - 1];
+            let expected_method = Method::from_str(&request_type);
+            match expected_method {
+                Ok(method) => { 
+                    assert_eq!(last_req.method, method); 
+                },
+                Err(e) => bail!(e),
+            }
         }
     }
 

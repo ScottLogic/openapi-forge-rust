@@ -11,6 +11,8 @@ use reqwest::Client;
 {{/ifNotEquals}}
 
 use reqwest::Url;
+use reqwest::Method;
+use std::str::FromStr;
 
 use anyhow::Result;
 
@@ -78,7 +80,7 @@ impl ApiClient{{_tag.name}} {
         {{#if (queryParametersExist _sortedParameters)}}
         {{createQueryStringSnippet _sortedParameters @root.cabi}}
         {{/if}}
-        let response = self.client.{{@key}}(request_uri)
+        let response = self.client. request(Method::from_str("{{@key}}")?, request_uri)
         {{#if (queryParametersExist _sortedParameters)}}
         .query(&query_params)
         {{/if}}
@@ -94,9 +96,14 @@ impl ApiClient{{_tag.name}} {
             .iter()
             .filter_map(|(k, v)| Some((k.to_string().into(), v.to_str().ok()?.into())))
             .collect::<HashMap<_, _>>();
-        let data = response.json::<{{safeTypeConvert _response.schema true}}>()
+        let data = response
+        {{#if (complexReturnType _response.schema)}}
+            .json::<{{safeTypeConvert _response.schema true}}>()
+        {{else}}
+            .text()
+        {{/if}}
             {{#ifNotEquals @root.cabi "true"}}.await{{/ifNotEquals}}?;
-        Ok(ForgeResponse::new(data, status_code, headers))
+        Ok(ForgeResponse::new(data.into(), status_code, headers))
     }
     {{else}}
     #[allow(unused_variables)]

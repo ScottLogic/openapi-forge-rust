@@ -52,7 +52,7 @@ pub async fn forge(modifier: u64) -> Result<()> {
         .arg("true")
         .spawn()?;
     let _status = forge_process.wait().await?;
-    println!("forge command exited with: {}", _status);
+    // println!("forge command exited with: {}", _status);
     Ok(())
 }
 
@@ -67,7 +67,7 @@ pub async fn compile_generated_api(modifier: u64) -> Result<()> {
         .arg("--quiet")
         .spawn()?;
     let _status = compile_proceess.wait().await?;
-    println!("cargo command exited with: {}", _status);
+    // println!("cargo command exited with: {}", _status);
     Ok(())
 }
 
