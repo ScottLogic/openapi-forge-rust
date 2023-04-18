@@ -166,6 +166,15 @@ pub extern "C" fn c_api_client{{toRustParamName _tag.name}}_{{toRustParamName op
         {{~/each ~}}
         ).unwrap())
 }
+
+#[no_mangle]
+pub extern "C" fn c_api_client{{toRustParamName _tag.name}}_{{toRustParamName operationId}}_serialize ( 
+    o: Box<ForgeResponse<{{safeTypeConvert _response.schema true}}>>
+) -> FFISafeTuple<{{safeTypeConvert _response.schema true}}> {
+    let serialized = serde_json::to_string(&o).unwrap();
+    FFISafeTuple::<{{safeTypeConvert _response.schema true}}>{ o, serialized: serialized.into() }
+}
+
 {{/if}}
 {{/ifEquals}}
 {{/each}}  

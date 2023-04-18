@@ -28,6 +28,7 @@ pub struct ForgeWorld {
     config: Option<Box<Configuration>>,
     http_client: Option<Box<Client>>,
     api_client: Option<Box<ApiClient>>,
+    last_object_response: Option<FFISafeResponseTuple<FFIObject>>,
 }
 
 impl ForgeWorld {
@@ -38,6 +39,7 @@ impl ForgeWorld {
             config: None,
             http_client: None,
             api_client: None,
+            last_object_response: None,
         }
     }
 

@@ -6,13 +6,14 @@ use abi_stable::std_types::{ROption, RString};
 use anyhow::{bail, Context, Result};
 use convert_case::Casing;
 use cucumber::{gherkin::Step, given, then, when};
+use serde_json::{Value, json};
 use url::Url;
 use wiremock::http::Method;
 use wiremock::{matchers::any, Mock, ResponseTemplate};
 
 use crate::data::FFIObject;
-use crate::ffi::{run_method_one_param, run_method_two_params, run_method_no_params_with_return};
-use crate::SERVER;
+use crate::ffi::{run_method_one_param, run_method_two_params, run_method_no_params_with_return, verify_object, serialize_returned_variable};
+use crate::{SERVER};
 use crate::{util, ForgeWorld};
 
 #[given(expr = "an API with the following specification")]
@@ -81,7 +82,9 @@ async fn call_method_with_server_responds(
             .await;
     }
     // run method
-    let _ffi_object = run_method_no_params_with_return::<FFIObject>(w, &method_name)?;
+    let ffi_object = run_method_no_params_with_return::<FFIObject>(w, &method_name)?;
+    let tuple = serialize_returned_variable::<FFIObject>(w, &method_name, ffi_object)?;
+    w.last_object_response = Some(tuple);
     Ok(())
 }
 
@@ -196,7 +199,29 @@ async fn requested_type_should_be(_w: &mut ForgeWorld, request_type: String) -> 
 }
 
 #[then(expr = "the response should be of type {word}")]
-async fn response_type_should_be(_w: &mut ForgeWorld, response_type: String) -> Result<()> {
-    // TODO
+async fn response_type_should_be(w: &mut ForgeWorld, struct_name: String) -> Result<()> {
+    let struct_name = struct_name.to_case(convert_case::Case::Snake);
+    verify_object(w, &struct_name)?;
+    Ok(())
+}
+
+#[then(expr = "the response should have a property {word} with value {word}")]
+async fn response_should_have_property(w: &mut ForgeWorld, property: String, expected_value: String) -> Result<()> {
+    if let Some(last_response) = &w.last_object_response {
+        let serialized = &last_response.serialized;
+        let dynamic_json = serde_json::from_str::<Value>(&serialized)?;
+        let data_container = dynamic_json.get("data").unwrap();
+        let actual_value = data_container.get(property).unwrap();
+        match expected_value.parse::<i32>() {
+            Ok(nb) => {
+                assert_eq!(&json!(nb), actual_value);
+            },
+            Err(_) => {
+                assert_eq!(&json!(expected_value), actual_value);
+            }
+        }
+    } else {
+        panic!("no last response found");
+    }
     Ok(())
 }

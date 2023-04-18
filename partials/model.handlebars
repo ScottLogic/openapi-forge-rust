@@ -33,10 +33,13 @@ pub struct {{toClassName @key}}
 }
 
 {{#ifEquals @root.cabi "true"}}
-pub extern "C" fn c_verify{{toRustParamName @key}}(o: Box<ForgeResponse<{{toClassName @key}}>>) {
-    // Deconstruct the struct as a verification
+// We can pass the object by reference normally but with ffi, this indicates using *mut (mutable pointers) which we can avoid by passing values. 
+#[no_mangle]
+pub extern "C" fn c{{toRustParamName @key}}_verify(o: Box<ForgeResponse<{{toClassName @key}}>>) -> Box<ForgeResponse<{{toClassName @key}}>> {
+    // Does nothing but references each field of the struct as a verification
     {{#each properties}}
-    let _{{toRustParamName @key}} = o.data.{{toRustParamName @key}};
+    let _{{toRustParamName @key}} = &o.data.{{toRustParamName @key}};
     {{/each}}
+    o
 }
 {{/ifEquals}}

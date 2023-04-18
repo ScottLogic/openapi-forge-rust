@@ -1,5 +1,7 @@
 use std::marker::PhantomData;
 
+use abi_stable::std_types::RString;
+
 #[derive(Debug)]
 #[repr(C)]
 pub struct ApiClient {
@@ -29,4 +31,11 @@ pub struct ForgeResponse<T> {
 #[repr(C)]
 pub struct FFIObject {
     _private: [u8; 0],
+}
+
+#[repr(C)]
+#[derive(Debug)]
+pub struct FFISafeResponseTuple<T> {
+    pub o: Box<ForgeResponse<T>>,
+    pub serialized: RString,
 }

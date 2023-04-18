@@ -533,6 +533,7 @@ dependencies = [
  "cucumber",
  "libloading 0.8.0",
  "once_cell",
+ "serde_json",
  "tokio",
  "url",
  "wiremock",

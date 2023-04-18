@@ -23,3 +23,12 @@ use serde::{Serialize, Deserialize};
 
 {{/unless}}
 {{/each}}
+
+{{#ifEquals _options.[generator.cabi_testing] "true"}}
+#[repr(C)]
+#[derive(Debug)]
+pub struct FFISafeTuple<T> {
+    pub o: Box<ForgeResponse<T>>,
+    pub serialized: String,
+}
+{{/ifEquals}}

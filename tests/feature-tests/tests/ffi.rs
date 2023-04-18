@@ -1,9 +1,15 @@
-use abi_stable::std_types::{RString, ROption};
+use std::fmt::Debug;
+
+use abi_stable::std_types::{ROption, RString};
 use anyhow::Result;
 use libloading::Library;
 
+use crate::data::{FFIObject, FFISafeResponseTuple};
 use crate::mock::PORT;
-use crate::{ data::{ ApiClient, Client, Configuration, ForgeResponse }, ForgeWorld };
+use crate::{
+    data::{ApiClient, Client, Configuration, ForgeResponse},
+    ForgeWorld,
+};
 
 pub fn get_generated_library(hash: u64) -> Result<Library> {
     // SAFETY
@@ -17,9 +23,8 @@ pub fn get_generated_library(hash: u64) -> Result<Library> {
 pub fn get_config(w: &mut ForgeWorld) -> Result<Box<Configuration>> {
     unsafe {
         if let Some(library) = &w.library {
-            let func: libloading::Symbol<
-                extern "C" fn(RString) -> Box<Configuration>
-            > = library.get(b"c_config_new")?;
+            let func: libloading::Symbol<extern "C" fn(RString) -> Box<Configuration>> =
+                library.get(b"c_config_new")?;
             let c = func(format!("http://127.0.0.1:{}", PORT).into());
             Ok(c)
         } else {
@@ -33,7 +38,7 @@ pub fn run_config_idx_change(w: &mut ForgeWorld, idx: u8) -> Result<()> {
         if let Some(library) = &w.library {
             let config = w.config.take();
             let func: libloading::Symbol<
-                extern "C" fn(Box<Configuration>, u8) -> Box<Configuration>
+                extern "C" fn(Box<Configuration>, u8) -> Box<Configuration>,
             > = library.get(b"c_config_select_server_index")?;
             if let Some(config) = config {
                 let new_config = func(config, idx);
@@ -51,9 +56,8 @@ pub fn run_config_idx_change(w: &mut ForgeWorld, idx: u8) -> Result<()> {
 pub fn get_http_client(w: &mut ForgeWorld) -> Result<Box<Client>> {
     unsafe {
         if let Some(library) = &w.library {
-            let func: libloading::Symbol<extern "C" fn() -> Box<Client>> = library.get(
-                b"c_reqwest_client_new"
-            )?;
+            let func: libloading::Symbol<extern "C" fn() -> Box<Client>> =
+                library.get(b"c_reqwest_client_new")?;
             let c = func();
             Ok(c)
         } else {
@@ -68,7 +72,7 @@ pub fn get_api_client(w: &mut ForgeWorld) -> Result<Box<ApiClient>> {
         let client = w.http_client.take();
         if let Some(library) = &w.library {
             let func: libloading::Symbol<
-                extern "C" fn(Box<Configuration>, Box<Client>) -> Box<ApiClient>
+                extern "C" fn(Box<Configuration>, Box<Client>) -> Box<ApiClient>,
             > = library.get(b"c_api_client_new")?;
             match (config, client) {
                 (Some(config), Some(client)) => {
@@ -90,39 +94,55 @@ pub fn drop_api_client_if_exists(w: &mut ForgeWorld) -> Result<()> {
         let api_client = w.api_client.take();
         if let Some(api_client) = api_client {
             if let Some(library) = &w.library {
-                let func: libloading::Symbol<extern "C" fn(Box<ApiClient>)> = library.get(
-                    b"c_api_client_drop"
-                )?;
+                let func: libloading::Symbol<extern "C" fn(Box<ApiClient>)> =
+                    library.get(b"c_api_client_drop")?;
                 func(api_client);
             } else {
-                panic!("get_api_client");
+                panic!("drop_api_client_if_exists");
             }
         }
         Ok(())
     }
 }
 
-
 pub fn run_method_no_params_with_return<T>(
     w: &mut ForgeWorld,
-    method_name: &str
+    method_name: &str,
 ) -> Result<Box<ForgeResponse<T>>> {
     unsafe {
         let c_method = format!("c_api_client_{}", method_name);
         let c_method_bytes = c_method.as_bytes();
         if let Some(library) = &w.library {
-            let func: libloading::Symbol<
-                extern "C" fn(Box<ApiClient>) -> Box<ForgeResponse<T>>
-            > = library.get(c_method_bytes)?;
+            let func: libloading::Symbol<extern "C" fn(Box<ApiClient>) -> Box<ForgeResponse<T>>> =
+                library.get(c_method_bytes)?;
             let api_client = w.api_client.take();
             if let Some(api_client) = api_client {
                 let ret = func(api_client);
                 Ok(ret)
             } else {
-                panic!("run_method_no_params api_client")
+                panic!("run_method_no_params_with_return api_client")
             }
         } else {
-            panic!("run_method_no_params")
+            panic!("run_method_no_params_with_return")
+        }
+    }
+}
+
+pub fn serialize_returned_variable<T>(
+    w: &mut ForgeWorld,
+    method_name: &str,
+    last_result: Box<ForgeResponse<T>>
+) -> Result<FFISafeResponseTuple<T>> {
+    unsafe {
+        let c_method = format!("c_api_client_{}_serialize", method_name);
+        let c_method_bytes = c_method.as_bytes();
+        if let Some(library) = &w.library {
+            let func: libloading::Symbol<extern "C" fn(Box<ForgeResponse<T>>) -> FFISafeResponseTuple<T>> =
+            library.get(c_method_bytes)?;
+            let ret = func(last_result);
+            Ok(ret)
+        } else {
+            panic!("run_method_no_params_with_return")
         }
     }
 }
@@ -137,22 +157,22 @@ pub fn run_method_one_param<T>(
         let c_method_bytes = c_method.as_bytes();
         if let Some(library) = &w.library {
             let func: libloading::Symbol<
-                extern "C" fn(Box<ApiClient>, ROption<T>) -> Box<ForgeResponse<RString>>
+                extern "C" fn(Box<ApiClient>, ROption<T>) -> Box<ForgeResponse<RString>>,
             > = library.get(c_method_bytes)?;
             let api_client = w.api_client.take();
             if let Some(api_client) = api_client {
                 let ret = func(api_client, arg_1);
                 Ok(ret)
             } else {
-                panic!("run_method_no_params api_client")
+                panic!("run_method_one_param api_client")
             }
         } else {
-            panic!("run_method_no_params")
+            panic!("run_method_one_param")
         }
     }
 }
 
-pub fn run_method_two_params<T: std::fmt::Debug, U: std::fmt::Debug>(
+pub fn run_method_two_params<T: Debug, U: Debug>(
     w: &mut ForgeWorld,
     method_name: &str,
     arg_1: ROption<T>,
@@ -163,17 +183,46 @@ pub fn run_method_two_params<T: std::fmt::Debug, U: std::fmt::Debug>(
         let c_method_bytes = c_method.as_bytes();
         if let Some(library) = &w.library {
             let func: libloading::Symbol<
-                extern "C" fn(Box<ApiClient>, ROption<T>, ROption<U>) -> Box<ForgeResponse<RString>>
+                extern "C" fn(
+                    Box<ApiClient>,
+                    ROption<T>,
+                    ROption<U>,
+                ) -> Box<ForgeResponse<RString>>,
             > = library.get(c_method_bytes)?;
             let api_client = w.api_client.take();
             if let Some(api_client) = api_client {
                 let ret = func(api_client, arg_1, arg_2);
                 Ok(ret)
             } else {
-                panic!("run_method_no_params api_client")
+                panic!("run_method_two_params api_client")
             }
         } else {
-            panic!("run_method_no_params")
+            panic!("run_method_two_params")
+        }
+    }
+}
+
+pub fn verify_object(w: &mut ForgeWorld, struct_name: &str) -> Result<()> {
+    let c_method = format!("c_{}_verify", struct_name);
+    let c_method_bytes = c_method.as_bytes();
+    unsafe {
+        if let Some(library) = &w.library {
+            let func: libloading::Symbol<
+                extern "C" fn(Box<ForgeResponse<FFIObject>>) -> Box<ForgeResponse<FFIObject>>,
+            > = library.get(c_method_bytes)?;
+            let object_response = w.last_object_response.take();
+            if let Some(mut object_response) = object_response {
+                let actual = object_response.o;
+                let ret = func(actual);
+                object_response.o = ret;
+                // put back the object
+                w.last_object_response = Some(object_response);
+                Ok(())
+            } else {
+                panic!("verify_object object verify")
+            }
+        } else {
+            panic!("verify_object")
         }
     }
 }

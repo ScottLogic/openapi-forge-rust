@@ -1,5 +1,5 @@
 {{#ifNotEquals _options.[generator.cabi_testing] "true"}}
-const SERVERS: [&str, {{servers.length}}] =  [{{~#each servers~}}"{{url}}"{{#unless @last}},{{/unless}}{{~/each~}}];
+const SERVERS: [&str, {{getOptionalLen servers.length}}] =  [{{~#each servers~}}"{{url}}"{{#unless @last}},{{/unless}}{{~/each~}}];
 {{/ifNotEquals}}
 {{#ifEquals _options.[generator.cabi_testing] "true"}}
 const SERVERS: [&str, {{getOptionalLen servers.length}}] =  [{{~#each servers~}}"{{urlPath url}}"{{#unless @last}},{{/unless}}{{~/each~}}];
@@ -21,10 +21,10 @@ impl Configuration {
     }
 
     pub fn get_base_address(&self) -> String {
-        if SERVERS.len() > 0 {
-            self.base_path.to_owned() + SERVERS[self.selected_server_index]
-        } else {
+        if SERVERS.is_empty() {
             self.base_path.to_owned()
+        } else {
+            self.base_path.to_owned() + SERVERS[self.selected_server_index]
         }
     }
 }
