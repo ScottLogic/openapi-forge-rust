@@ -4,7 +4,7 @@ mod mock;
 mod spec;
 mod util;
 
-use anyhow::{ Ok, Result };
+use anyhow::{ Ok, Result, Context };
 
 use cucumber::World;
 use data::*;
@@ -28,7 +28,7 @@ pub struct ForgeWorld {
     config: Option<Box<Configuration>>,
     http_client: Option<Box<Client>>,
     api_client: Option<Box<ApiClient>>,
-    last_object_response: Option<FFISafeResponseTuple<FFIObject>>,
+    last_object_response: Option<FFISafeTuple<FFIObject>>,
 }
 
 impl ForgeWorld {
@@ -44,7 +44,7 @@ impl ForgeWorld {
     }
 
     fn set_library(&mut self) -> Result<()> {
-        let lib = ffi::get_generated_library(self.library_name_modifier.unwrap())?;
+        let lib = ffi::get_generated_library(self.library_name_modifier.context("library modifier")?)?;
         self.library = Some(lib);
         Ok(())
     }

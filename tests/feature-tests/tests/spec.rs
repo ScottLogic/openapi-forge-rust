@@ -6,14 +6,17 @@ use abi_stable::std_types::{ROption, RString};
 use anyhow::{bail, Context, Result};
 use convert_case::Casing;
 use cucumber::{gherkin::Step, given, then, when};
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use url::Url;
 use wiremock::http::Method;
 use wiremock::{matchers::any, Mock, ResponseTemplate};
 
 use crate::data::FFIObject;
-use crate::ffi::{run_method_one_param, run_method_two_params, run_method_no_params_with_return, verify_object, serialize_returned_variable};
-use crate::{SERVER};
+use crate::ffi::{
+    get_type_information, get_type_name, run_method_no_params_with_return, run_method_one_param,
+    run_method_two_params, serialize_returned_variable,
+};
+use crate::SERVER;
 use crate::{util, ForgeWorld};
 
 #[given(expr = "an API with the following specification")]
@@ -22,16 +25,34 @@ async fn api_specification(w: &mut ForgeWorld, step: &Step) -> Result<()> {
     if let Some(spec) = step.docstring() {
         let hash = util::hash_an_object(spec);
         w.library_name_modifier = Some(hash);
-        util::write_schema_to_file(spec, w.library_name_modifier.unwrap()).await?;
+        util::write_schema_to_file(spec, w.library_name_modifier.context("library modifier")?)
+            .await?;
     } else {
         bail!("API spec not found");
     }
     // forge + compile + set
-    util::forge(w.library_name_modifier.unwrap()).await?;
-    util::compile_generated_api(w.library_name_modifier.unwrap()).await?;
-    // maybe move to another location
+    util::forge(w.library_name_modifier.context("library modifier")?).await?;
+    util::compile_generated_api(w.library_name_modifier.context("library modifier")?).await?;
     w.set_library()?;
     w.set_reset_client(None)?;
+    Ok(())
+}
+#[when(expr = "generating an API from the following specification")]
+async fn api_specification_2(w: &mut ForgeWorld, step: &Step) -> Result<()> {
+    // This doesn't generate api client
+    // schema
+    if let Some(spec) = step.docstring() {
+        let hash = util::hash_an_object(spec);
+        w.library_name_modifier = Some(hash);
+        util::write_schema_to_file(spec, w.library_name_modifier.context("library modifier")?)
+            .await?;
+    } else {
+        bail!("API spec not found");
+    }
+    // forge + compile + set
+    util::forge(w.library_name_modifier.context("library modifier")?).await?;
+    util::compile_generated_api(w.library_name_modifier.context("library modifier")?).await?;
+    w.set_library()?;
     Ok(())
 }
 
@@ -68,15 +89,14 @@ async fn call_method_with_server_responds(
     step: &Step,
 ) -> Result<()> {
     // schema
-    let response_body = step.docstring().context("response body not found").unwrap().trim();
+    let response_body = step.docstring().context("response body not found")?.trim();
     let method_name = method_name.to_case(convert_case::Case::Snake);
     // add mock
     if let Some(server) = SERVER.get() {
         Mock::given(any())
-            .respond_with(ResponseTemplate::new(200).set_body_raw(
-                response_body,
-                "application/json"
-            ))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_raw(response_body, "application/json"),
+            )
             .expect(1)
             .mount(server)
             .await;
@@ -199,29 +219,79 @@ async fn requested_type_should_be(_w: &mut ForgeWorld, request_type: String) -> 
 }
 
 #[then(expr = "the response should be of type {word}")]
-async fn response_type_should_be(w: &mut ForgeWorld, struct_name: String) -> Result<()> {
-    let struct_name = struct_name.to_case(convert_case::Case::Snake);
-    verify_object(w, &struct_name)?;
+async fn response_type_should_be(w: &mut ForgeWorld, expected: String) -> Result<()> {
+    let snake_name = expected.to_case(convert_case::Case::Snake);
+    let actual = get_type_name(w, &snake_name)?;
+    assert!(actual.contains(&expected));
     Ok(())
 }
 
 #[then(expr = "the response should have a property {word} with value {word}")]
-async fn response_should_have_property(w: &mut ForgeWorld, property: String, expected_value: String) -> Result<()> {
+async fn response_should_have_property(
+    w: &mut ForgeWorld,
+    property: String,
+    expected_value: String,
+) -> Result<()> {
     if let Some(last_response) = &w.last_object_response {
-        let serialized = &last_response.serialized;
+        let serialized = &last_response.1;
         let dynamic_json = serde_json::from_str::<Value>(&serialized)?;
-        let data_container = dynamic_json.get("data").unwrap();
-        let actual_value = data_container.get(property).unwrap();
+        let data_container = dynamic_json.get("data").context("cannot access data")?;
+        let actual_value = data_container
+            .get(&property)
+            .context(format!("cannot access property {}", property))?;
         match expected_value.parse::<i32>() {
             Ok(nb) => {
                 assert_eq!(&json!(nb), actual_value);
-            },
+            }
             Err(_) => {
                 assert_eq!(&json!(expected_value), actual_value);
             }
         }
     } else {
         panic!("no last response found");
+    }
+    Ok(())
+}
+
+#[then(expr = "it should generate a model object named {word}")]
+async fn model_should_have_object(w: &mut ForgeWorld, expected: String) -> Result<()> {
+    let snake_name = expected.to_case(convert_case::Case::Snake);
+    let info = get_type_information(w, &snake_name)?;
+    let actual = info.name;
+    assert!(actual.contains(&expected));
+    Ok(())
+}
+
+#[then(regex = r"(\S+) should have an? (\S+) property named (\S+) of type (\S+)")]
+async fn object_should_have_type(
+    w: &mut ForgeWorld,
+    object: String,
+    modifier: String,
+    expected_name: String,
+    expected_type: String,
+) -> Result<()> {
+    let snake_name = object.to_case(convert_case::Case::Snake);
+    let info = get_type_information(w, &snake_name)?;
+    let expected_in_snake_case = RString::from(expected_name.to_case(convert_case::Case::Snake));
+    assert!(info.fields.contains_key(&expected_in_snake_case));
+    let actual_type = info
+        .fields
+        .get(&expected_in_snake_case)
+        .context("cannot get type from the map")?;
+    match &expected_type[..] {
+        "number" => {
+            assert!(actual_type.contains("i32"));
+        }
+        "string" => {
+            assert!(actual_type.contains("String"));
+        }
+        complex_type => {
+            assert!(actual_type.contains(&complex_type));
+        }
+    };
+    // Optional
+    if &modifier == "optional" {
+        assert!(actual_type.contains("Option<"));
     }
     Ok(())
 }

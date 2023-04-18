@@ -3,7 +3,7 @@
 * <summary>{{description}}</summary>
 */
 {{/if}}
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug{{#ifEquals @root.cabi "true"}}, Default{{/ifEquals}})]
 {{#ifEquals @root.cabi "true"}}
 #[repr(C)]
 {{/ifEquals}}
@@ -35,11 +35,22 @@ pub struct {{toClassName @key}}
 {{#ifEquals @root.cabi "true"}}
 // We can pass the object by reference normally but with ffi, this indicates using *mut (mutable pointers) which we can avoid by passing values. 
 #[no_mangle]
-pub extern "C" fn c{{toRustParamName @key}}_verify(o: Box<ForgeResponse<{{toClassName @key}}>>) -> Box<ForgeResponse<{{toClassName @key}}>> {
+pub extern "C" fn c{{toRustParamName @key}}_type_name_of_object(o: Box<ForgeResponse<{{toClassName @key}}>>) -> FFISafeTuple<{{toClassName @key}}> {
     // Does nothing but references each field of the struct as a verification
+    let type_name = get_type_name(&o);
+    FFISafeTuple::<{{toClassName @key}}>(o,type_name)
+}
+
+#[no_mangle]
+pub extern "C" fn c{{toRustParamName @key}}_type_information() -> Box<ObjectTypeInformation> {
+    let o = {{toClassName @key}}::default();
+    let type_name = get_type_name(&o);
+    let {{#each properties}}{{#if @last}}mut{{/if}}{{/each}} map = HashMap::new();
     {{#each properties}}
-    let _{{toRustParamName @key}} = &o.data.{{toRustParamName @key}};
+    let field_type_name = get_type_name(&o.{{toRustParamName @key}});
+    map.insert("{{toRustParamName @key}}".into(), field_type_name);
     {{/each}}
-    o
+    let type_information = ObjectTypeInformation { type_name, fields: map};
+    Box::new(type_information)
 }
 {{/ifEquals}}

@@ -4,7 +4,7 @@ use abi_stable::std_types::{ROption, RString};
 use anyhow::Result;
 use libloading::Library;
 
-use crate::data::{FFIObject, FFISafeResponseTuple};
+use crate::data::{FFIObject, FFISafeTuple, ObjectTypeInformation};
 use crate::mock::PORT;
 use crate::{
     data::{ApiClient, Client, Configuration, ForgeResponse},
@@ -131,14 +131,14 @@ pub fn run_method_no_params_with_return<T>(
 pub fn serialize_returned_variable<T>(
     w: &mut ForgeWorld,
     method_name: &str,
-    last_result: Box<ForgeResponse<T>>
-) -> Result<FFISafeResponseTuple<T>> {
+    last_result: Box<ForgeResponse<T>>,
+) -> Result<FFISafeTuple<T>> {
     unsafe {
         let c_method = format!("c_api_client_{}_serialize", method_name);
         let c_method_bytes = c_method.as_bytes();
         if let Some(library) = &w.library {
-            let func: libloading::Symbol<extern "C" fn(Box<ForgeResponse<T>>) -> FFISafeResponseTuple<T>> =
-            library.get(c_method_bytes)?;
+            let func: libloading::Symbol<extern "C" fn(Box<ForgeResponse<T>>) -> FFISafeTuple<T>> =
+                library.get(c_method_bytes)?;
             let ret = func(last_result);
             Ok(ret)
         } else {
@@ -202,27 +202,45 @@ pub fn run_method_two_params<T: Debug, U: Debug>(
     }
 }
 
-pub fn verify_object(w: &mut ForgeWorld, struct_name: &str) -> Result<()> {
-    let c_method = format!("c_{}_verify", struct_name);
+pub fn get_type_name(w: &mut ForgeWorld, struct_name: &str) -> Result<RString> {
+    let c_method = format!("c_{}_type_name_of_object", struct_name);
     let c_method_bytes = c_method.as_bytes();
     unsafe {
         if let Some(library) = &w.library {
             let func: libloading::Symbol<
-                extern "C" fn(Box<ForgeResponse<FFIObject>>) -> Box<ForgeResponse<FFIObject>>,
+                extern "C" fn(Box<ForgeResponse<FFIObject>>) -> FFISafeTuple<FFIObject>,
             > = library.get(c_method_bytes)?;
             let object_response = w.last_object_response.take();
             if let Some(mut object_response) = object_response {
-                let actual = object_response.o;
-                let ret = func(actual);
-                object_response.o = ret;
+                let actual = object_response.0;
+                let tuple = func(actual);
+                object_response.0 = tuple.0;
                 // put back the object
                 w.last_object_response = Some(object_response);
-                Ok(())
+                Ok(tuple.1)
             } else {
-                panic!("verify_object object verify")
+                panic!("get_type_name object response")
             }
         } else {
-            panic!("verify_object")
+            panic!("get_type_name")
+        }
+    }
+}
+
+pub fn get_type_information(
+    w: &mut ForgeWorld,
+    struct_name: &str,
+) -> Result<Box<ObjectTypeInformation>> {
+    let c_method = format!("c_{}_type_information", struct_name);
+    let c_method_bytes = c_method.as_bytes();
+    unsafe {
+        if let Some(library) = &w.library {
+            let func: libloading::Symbol<extern "C" fn() -> Box<ObjectTypeInformation>> =
+                library.get(c_method_bytes)?;
+            let info = func();
+            Ok(info)
+        } else {
+            panic!("get_type_information")
         }
     }
 }

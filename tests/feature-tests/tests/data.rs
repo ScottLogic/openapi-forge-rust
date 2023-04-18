@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use abi_stable::std_types::RString;
+use abi_stable::std_types::{RHashMap, RString};
 
 #[derive(Debug)]
 #[repr(C)]
@@ -35,7 +35,11 @@ pub struct FFIObject {
 
 #[repr(C)]
 #[derive(Debug)]
-pub struct FFISafeResponseTuple<T> {
-    pub o: Box<ForgeResponse<T>>,
-    pub serialized: RString,
+pub struct FFISafeTuple<T>(pub Box<ForgeResponse<T>>, pub RString);
+
+#[repr(C)]
+#[derive(Debug)]
+pub struct ObjectTypeInformation {
+    pub name: RString,
+    pub fields: RHashMap<RString, RString>,
 }
