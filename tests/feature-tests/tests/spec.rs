@@ -289,9 +289,18 @@ async fn object_should_have_type(
             assert!(actual_type.contains(&complex_type));
         }
     };
-    // Optional
-    if &modifier == "optional" {
-        assert!(actual_type.contains("Option<"));
+    // Optional / Required check
+    match &modifier[..] {
+        "optional" => {
+            assert!(actual_type.contains("Option<"));
+        },
+        "required" => {
+            assert!(!actual_type.contains("Option<"));
+        },
+        _ => {
+            panic!("unrecognised modifier");
+        }
+
     }
     Ok(())
 }
