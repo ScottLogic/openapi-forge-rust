@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
 use abi_stable::std_types::{ROption, RString};
-use anyhow::Result;
+use anyhow::{Result, bail};
 use libloading::Library;
 
 use crate::data::{FFIObject, FFISafeTuple, ObjectTypeInformation};
@@ -28,7 +28,7 @@ pub fn get_config(w: &mut ForgeWorld) -> Result<Box<Configuration>> {
             let c = func(format!("http://127.0.0.1:{}", PORT).into());
             Ok(c)
         } else {
-            panic!("get_config")
+            bail!("get_config")
         }
     }
 }
@@ -45,10 +45,10 @@ pub fn run_config_idx_change(w: &mut ForgeWorld, idx: u8) -> Result<()> {
                 w.config = Some(new_config);
                 Ok(())
             } else {
-                panic!("run_config_idx_change cfg")
+                bail!("run_config_idx_change cfg")
             }
         } else {
-            panic!("run_config_idx_change")
+            bail!("run_config_idx_change")
         }
     }
 }
@@ -61,7 +61,7 @@ pub fn get_http_client(w: &mut ForgeWorld) -> Result<Box<Client>> {
             let c = func();
             Ok(c)
         } else {
-            panic!("get_http_client")
+            bail!("get_http_client")
         }
     }
 }
@@ -79,10 +79,10 @@ pub fn get_api_client(w: &mut ForgeWorld) -> Result<Box<ApiClient>> {
                     let api_client = func(config, client);
                     Ok(api_client)
                 }
-                _ => panic!("get_api_client cfg"),
+                _ => bail!("get_api_client cfg"),
             }
         } else {
-            panic!("get_api_client")
+            bail!("get_api_client")
         }
     }
 }
@@ -98,7 +98,7 @@ pub fn drop_api_client_if_exists(w: &mut ForgeWorld) -> Result<()> {
                     library.get(b"c_api_client_drop")?;
                 func(api_client);
             } else {
-                panic!("drop_api_client_if_exists");
+                bail!("drop_api_client_if_exists");
             }
         }
         Ok(())
@@ -120,10 +120,10 @@ pub fn run_method_no_params_with_return<T>(
                 let ret = func(api_client);
                 Ok(ret)
             } else {
-                panic!("run_method_no_params_with_return api_client")
+                bail!("run_method_no_params_with_return api_client")
             }
         } else {
-            panic!("run_method_no_params_with_return")
+            bail!("run_method_no_params_with_return")
         }
     }
 }
@@ -142,7 +142,7 @@ pub fn serialize_returned_variable<T>(
             let ret = func(last_result);
             Ok(ret)
         } else {
-            panic!("run_method_no_params_with_return")
+            bail!("run_method_no_params_with_return")
         }
     }
 }
@@ -164,10 +164,10 @@ pub fn run_method_one_param<T>(
                 let ret = func(api_client, arg_1);
                 Ok(ret)
             } else {
-                panic!("run_method_one_param api_client")
+                bail!("run_method_one_param api_client")
             }
         } else {
-            panic!("run_method_one_param")
+            bail!("run_method_one_param")
         }
     }
 }
@@ -194,10 +194,10 @@ pub fn run_method_two_params<T: Debug, U: Debug>(
                 let ret = func(api_client, arg_1, arg_2);
                 Ok(ret)
             } else {
-                panic!("run_method_two_params api_client")
+                bail!("run_method_two_params api_client")
             }
         } else {
-            panic!("run_method_two_params")
+            bail!("run_method_two_params")
         }
     }
 }
@@ -219,10 +219,10 @@ pub fn get_type_name(w: &mut ForgeWorld, struct_name: &str) -> Result<RString> {
                 w.last_object_response = Some(object_response);
                 Ok(tuple.1)
             } else {
-                panic!("get_type_name object response")
+                bail!("get_type_name object response")
             }
         } else {
-            panic!("get_type_name")
+            bail!("get_type_name")
         }
     }
 }
@@ -240,7 +240,7 @@ pub fn get_type_information(
             let info = func();
             Ok(info)
         } else {
-            panic!("get_type_information")
+            bail!("get_type_information")
         }
     }
 }
