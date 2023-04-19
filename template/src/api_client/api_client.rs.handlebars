@@ -18,7 +18,6 @@ use reqwest::Client;
 
 use reqwest::Url;
 use reqwest::Method;
-use std::str::FromStr;
 
 use anyhow::Result;
 
@@ -79,7 +78,7 @@ impl ApiClient{{_tag.name}} {
         {{#if (queryParametersExist _sortedParameters)}}
         {{createQueryStringSnippet _sortedParameters @root.cabi}}
         {{/if}}
-        let response = self.client. request(Method::from_str("{{@key}}")?, request_uri)
+        let response = self.client. request(Method::{{toAllCapital @key}}, request_uri)
         {{#if (queryParametersExist _sortedParameters)}}
         .query(&query_params)
         {{/if}}
