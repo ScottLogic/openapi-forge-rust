@@ -1,5 +1,5 @@
 const camelToSnakeCase = (str) =>
-  str.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
+  str.replace(/[A-Z0-9]/g, (letter) => `_${letter.toLowerCase()}`);
 
 const toRustParamName = (name) => {
   name = name.replace(/[^a-z0-9]/gi, "");

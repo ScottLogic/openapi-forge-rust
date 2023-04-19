@@ -1,13 +1,10 @@
-use abi_stable::std_types::{RString};
-use anyhow::{Result, bail, Ok};
+use abi_stable::std_types::{ RString };
+use anyhow::{ Result, bail, Ok };
 use libloading::Library;
 
-use crate::data::{FFISafeTuple, ObjectTypeInformation, FnSignatureInformation};
+use crate::data::{ FFISafeTuple, ObjectTypeInformation, FnSignatureInformation };
 use crate::mock::PORT;
-use crate::{
-    data::{ApiClient, Client, Configuration, ForgeResponse},
-    ForgeWorld,
-};
+use crate::{ data::{ ApiClient, Client, Configuration, ForgeResponse }, ForgeWorld };
 
 pub fn get_generated_library(hash: u64) -> Result<Library> {
     // SAFETY
@@ -21,8 +18,9 @@ pub fn get_generated_library(hash: u64) -> Result<Library> {
 pub fn get_config(w: &mut ForgeWorld) -> Result<Box<Configuration>> {
     unsafe {
         if let Some(library) = &w.library {
-            let func: libloading::Symbol<extern "C" fn(RString) -> Box<Configuration>> =
-                library.get(b"c_config_new")?;
+            let func: libloading::Symbol<
+                extern "C" fn(RString) -> Box<Configuration>
+            > = library.get(b"c_config_new")?;
             let c = func(format!("http://127.0.0.1:{}", PORT).into());
             Ok(c)
         } else {
@@ -36,7 +34,7 @@ pub fn run_config_idx_change(w: &mut ForgeWorld, idx: u8) -> Result<()> {
         if let Some(library) = &w.library {
             let config = w.config.take();
             let func: libloading::Symbol<
-                extern "C" fn(Box<Configuration>, u8) -> Box<Configuration>,
+                extern "C" fn(Box<Configuration>, u8) -> Box<Configuration>
             > = library.get(b"c_config_select_server_index")?;
             if let Some(config) = config {
                 let new_config = func(config, idx);
@@ -54,8 +52,9 @@ pub fn run_config_idx_change(w: &mut ForgeWorld, idx: u8) -> Result<()> {
 pub fn get_http_client(w: &mut ForgeWorld) -> Result<Box<Client>> {
     unsafe {
         if let Some(library) = &w.library {
-            let func: libloading::Symbol<extern "C" fn() -> Box<Client>> =
-                library.get(b"c_reqwest_client_new")?;
+            let func: libloading::Symbol<extern "C" fn() -> Box<Client>> = library.get(
+                b"c_reqwest_client_new"
+            )?;
             let c = func();
             Ok(c)
         } else {
@@ -70,7 +69,7 @@ pub fn get_api_client(w: &mut ForgeWorld) -> Result<Box<ApiClient>> {
         let client = w.http_client.take();
         if let Some(library) = &w.library {
             let func: libloading::Symbol<
-                extern "C" fn(Box<Configuration>, Box<Client>) -> Box<ApiClient>,
+                extern "C" fn(Box<Configuration>, Box<Client>) -> Box<ApiClient>
             > = library.get(b"c_api_client_new")?;
             match (config, client) {
                 (Some(config), Some(client)) => {
@@ -92,8 +91,9 @@ pub fn drop_api_client_if_exists(w: &mut ForgeWorld) -> Result<()> {
         let api_client = w.api_client.take();
         if let Some(api_client) = api_client {
             if let Some(library) = &w.library {
-                let func: libloading::Symbol<extern "C" fn(Box<ApiClient>)> =
-                    library.get(b"c_api_client_drop")?;
+                let func: libloading::Symbol<extern "C" fn(Box<ApiClient>)> = library.get(
+                    b"c_api_client_drop"
+                )?;
                 func(api_client);
             } else {
                 bail!("drop_api_client_if_exists");
@@ -103,14 +103,14 @@ pub fn drop_api_client_if_exists(w: &mut ForgeWorld) -> Result<()> {
     }
 }
 
-
 pub fn get_fn_signature(w: &mut ForgeWorld, method_name: &str) -> Result<FnSignatureInformation> {
-    unsafe{
+    unsafe {
         let c_method = format!("c_api_client_{}_signature", method_name);
         let c_method_bytes = c_method.as_bytes();
         if let Some(library) = &w.library {
-            let func: libloading::Symbol<extern "C" fn() -> FnSignatureInformation> =
-                library.get(c_method_bytes)?;
+            let func: libloading::Symbol<extern "C" fn() -> FnSignatureInformation> = library.get(
+                c_method_bytes
+            )?;
             let info = func();
             Ok(info)
         } else {
@@ -122,14 +122,15 @@ pub fn get_fn_signature(w: &mut ForgeWorld, method_name: &str) -> Result<FnSigna
 pub fn serialize_returned_variable<T>(
     w: &mut ForgeWorld,
     method_name: &str,
-    last_result: Box<ForgeResponse<T>>,
+    last_result: Box<ForgeResponse<T>>
 ) -> Result<FFISafeTuple<T>> {
     unsafe {
         let c_method = format!("c_api_client_{}_serialize", method_name);
         let c_method_bytes = c_method.as_bytes();
         if let Some(library) = &w.library {
-            let func: libloading::Symbol<extern "C" fn(Box<ForgeResponse<T>>) -> FFISafeTuple<T>> =
-                library.get(c_method_bytes)?;
+            let func: libloading::Symbol<
+                extern "C" fn(Box<ForgeResponse<T>>) -> FFISafeTuple<T>
+            > = library.get(c_method_bytes)?;
             let ret = func(last_result);
             Ok(ret)
         } else {
@@ -140,14 +141,15 @@ pub fn serialize_returned_variable<T>(
 
 pub fn run_method_no_params<T>(
     w: &mut ForgeWorld,
-    method_name: &str,
+    method_name: &str
 ) -> Result<Box<ForgeResponse<T>>> {
     unsafe {
         let c_method = format!("c_api_client_{}", method_name);
         let c_method_bytes = c_method.as_bytes();
         if let Some(library) = &w.library {
-            let func: libloading::Symbol<extern "C" fn(Box<ApiClient>) -> Box<ForgeResponse<T>>> =
-                library.get(c_method_bytes)?;
+            let func: libloading::Symbol<
+                extern "C" fn(Box<ApiClient>) -> Box<ForgeResponse<T>>
+            > = library.get(c_method_bytes)?;
             let api_client = w.api_client.take();
             if let Some(api_client) = api_client {
                 let ret = func(api_client);
@@ -164,14 +166,39 @@ pub fn run_method_no_params<T>(
 pub fn run_method_one_param<T, U>(
     w: &mut ForgeWorld,
     method_name: &str,
-    arg_1: T,
+    arg_1: T
 ) -> Result<Box<ForgeResponse<U>>> {
     unsafe {
         let c_method = format!("c_api_client_{}", method_name);
         let c_method_bytes = c_method.as_bytes();
         if let Some(library) = &w.library {
             let func: libloading::Symbol<
-                extern "C" fn(Box<ApiClient>, T) -> Box<ForgeResponse<U>>,
+                extern "C" fn(Box<ApiClient>, T) -> Box<ForgeResponse<U>>
+            > = library.get(c_method_bytes)?;
+            let api_client = w.api_client.take();
+            if let Some(api_client) = api_client {
+                let ret = func(api_client, arg_1);
+                Ok(ret)
+            } else {
+                bail!("run_method_one_param api_client")
+            }
+        } else {
+            bail!("run_method_one_param")
+        }
+    }
+}
+
+pub fn run_method_one_param_from_deser<T>(
+    w: &mut ForgeWorld,
+    method_name: &str,
+    arg_1: RString
+) -> Result<Box<ForgeResponse<T>>> {
+    unsafe {
+        let c_method = format!("c_api_client_{}_from_deserialized", method_name);
+        let c_method_bytes = c_method.as_bytes();
+        if let Some(library) = &w.library {
+            let func: libloading::Symbol<
+                extern "C" fn(Box<ApiClient>, RString) -> Box<ForgeResponse<T>>
             > = library.get(c_method_bytes)?;
             let api_client = w.api_client.take();
             if let Some(api_client) = api_client {
@@ -190,18 +217,14 @@ pub fn run_method_two_params<T, U, V>(
     w: &mut ForgeWorld,
     method_name: &str,
     arg_1: T,
-    arg_2: U,
+    arg_2: U
 ) -> Result<Box<ForgeResponse<V>>> {
     unsafe {
         let c_method = format!("c_api_client_{}", method_name);
         let c_method_bytes = c_method.as_bytes();
         if let Some(library) = &w.library {
             let func: libloading::Symbol<
-                extern "C" fn(
-                    Box<ApiClient>,
-                    T,
-                    U,
-                ) -> Box<ForgeResponse<V>>,
+                extern "C" fn(Box<ApiClient>, T, U) -> Box<ForgeResponse<V>>
             > = library.get(c_method_bytes)?;
             let api_client = w.api_client.take();
             if let Some(api_client) = api_client {
@@ -216,24 +239,19 @@ pub fn run_method_two_params<T, U, V>(
     }
 }
 
-pub fn run_method_three_params<T, U, V, W>(
+pub fn _run_method_three_params<T, U, V, W>(
     w: &mut ForgeWorld,
     method_name: &str,
     arg_1: T,
     arg_2: U,
-    arg_3: V,
+    arg_3: V
 ) -> Result<Box<ForgeResponse<W>>> {
     unsafe {
         let c_method = format!("c_api_client_{}", method_name);
         let c_method_bytes = c_method.as_bytes();
         if let Some(library) = &w.library {
             let func: libloading::Symbol<
-                extern "C" fn(
-                    Box<ApiClient>,
-                    T,
-                    U,
-                    V,
-                ) -> Box<ForgeResponse<W>>,
+                extern "C" fn(Box<ApiClient>, T, U, V) -> Box<ForgeResponse<W>>
             > = library.get(c_method_bytes)?;
             let api_client = w.api_client.take();
             if let Some(api_client) = api_client {
@@ -248,14 +266,12 @@ pub fn run_method_three_params<T, U, V, W>(
     }
 }
 
-pub fn model_get_type_name(w: &mut ForgeWorld, struct_name: &str) -> Result<RString> {
-    let c_method = format!("c_{}_type_name", struct_name);
+pub fn model_get_type_name(w: &mut ForgeWorld, struct_snake_case: &str) -> Result<RString> {
+    let c_method = format!("c_{}_type_name", struct_snake_case);
     let c_method_bytes = c_method.as_bytes();
     unsafe {
         if let Some(library) = &w.library {
-            let func: libloading::Symbol<
-                extern "C" fn() -> RString,
-            > = library.get(c_method_bytes)?;
+            let func: libloading::Symbol<extern "C" fn() -> RString> = library.get(c_method_bytes)?;
             let type_name = func();
             Ok(type_name)
         } else {
@@ -266,14 +282,15 @@ pub fn model_get_type_name(w: &mut ForgeWorld, struct_name: &str) -> Result<RStr
 
 pub fn model_get_type_information(
     w: &mut ForgeWorld,
-    struct_name: &str,
+    struct_snake_case: &str
 ) -> Result<Box<ObjectTypeInformation>> {
-    let c_method = format!("c_{}_type_information", struct_name);
+    let c_method = format!("c_{}_type_information", struct_snake_case);
     let c_method_bytes = c_method.as_bytes();
     unsafe {
         if let Some(library) = &w.library {
-            let func: libloading::Symbol<extern "C" fn() -> Box<ObjectTypeInformation>> =
-                library.get(c_method_bytes)?;
+            let func: libloading::Symbol<extern "C" fn() -> Box<ObjectTypeInformation>> = library.get(
+                c_method_bytes
+            )?;
             let info = func();
             Ok(info)
         } else {

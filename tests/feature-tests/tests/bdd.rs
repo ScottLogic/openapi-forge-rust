@@ -44,7 +44,9 @@ impl ForgeWorld {
     }
 
     fn set_library(&mut self) -> Result<()> {
-        let lib = ffi::get_generated_library(self.library_name_modifier.context("library modifier")?)?;
+        let lib = ffi::get_generated_library(
+            self.library_name_modifier.context("library modifier")?
+        )?;
         self.library = Some(lib);
         Ok(())
     }

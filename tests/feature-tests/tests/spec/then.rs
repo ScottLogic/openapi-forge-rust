@@ -1,14 +1,14 @@
-use std::{collections::HashSet, path::Path, str::FromStr};
+use std::{ collections::HashSet, path::Path, str::FromStr };
 
 use abi_stable::std_types::RString;
-use anyhow::{Result, bail, Context};
+use anyhow::{ Result, bail, Context };
 use convert_case::Casing;
 use cucumber::then;
-use serde_json::{Value, json};
+use serde_json::{ Value, json };
 use url::Url;
 use wiremock::http::Method;
 
-use crate::{ForgeWorld, ffi::{model_get_type_information, model_get_type_name}};
+use crate::{ ForgeWorld, ffi::{ model_get_type_information, model_get_type_name } };
 
 use crate::SERVER;
 
@@ -72,7 +72,7 @@ async fn response_type_should_be(w: &mut ForgeWorld, expected: String) -> Result
 async fn response_should_have_property(
     w: &mut ForgeWorld,
     property: String,
-    expected_value: String,
+    expected_value: String
 ) -> Result<()> {
     if let Some(last_response) = &w.last_object_response {
         let serialized = &last_response.1;
@@ -110,14 +110,13 @@ async fn then_object_should_have_type(
     object: String,
     modifier: String,
     expected_name: String,
-    expected_type: String,
+    expected_type: String
 ) -> Result<()> {
     let snake_name = object.to_case(convert_case::Case::Snake);
     let info = model_get_type_information(w, &snake_name)?;
     let expected_name_snake_case = RString::from(expected_name.to_case(convert_case::Case::Snake));
     assert!(info.fields.contains_key(&expected_name_snake_case));
-    let actual_type = info
-        .fields
+    let actual_type = info.fields
         .get(&expected_name_snake_case)
         .context("cannot get type from the map")?;
     match &expected_type[..] {
@@ -130,19 +129,18 @@ async fn then_object_should_have_type(
         complex_type => {
             assert!(actual_type.contains(&complex_type));
         }
-    };
+    }
     // Optional / Required check
     match &modifier[..] {
         "optional" => {
             assert!(actual_type.contains("Option<"));
-        },
+        }
         "required" => {
             assert!(!actual_type.contains("Option<"));
-        },
+        }
         _ => {
             bail!("unrecognised modifier");
         }
-
     }
     Ok(())
 }

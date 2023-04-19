@@ -175,6 +175,21 @@ pub extern "C" fn c_api_client{{toRustParamName _tag.name}}_{{toRustParamName op
 }
 
 #[no_mangle]
+pub extern "C" fn c_api_client{{toRustParamName _tag.name}}_{{toRustParamName operationId}}_from_deserialized ( 
+    api_client: Box<ApiClient{{_tag.name}}>,
+    {{~#each _sortedParameters ~}}
+    {{toRustParamName name ~}}: String,
+    {{~/each ~}}
+) -> Box<ForgeResponse<{{safeTypeConvert _response.schema true}}>> {
+    c_api_client{{toRustParamName _tag.name}}_{{toRustParamName operationId}}(
+        api_client,
+        {{~#each _sortedParameters ~}}
+        serde_json::from_str(&{{toRustParamName name ~}}).unwrap(),
+        {{~/each ~}}
+    )
+}
+
+#[no_mangle]
 pub extern "C" fn c_api_client{{toRustParamName _tag.name}}_{{toRustParamName operationId}}_signature() -> FnSignatureInformation {
     let {{#each _sortedParameters}}{{#if @last}}mut{{/if}}{{/each}} input_types = Vec::new();
     {{~#each _sortedParameters ~}}

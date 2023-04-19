@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use abi_stable::std_types::{RHashMap, RString, RVec, ROption};
+use abi_stable::std_types::{ RHashMap, RString, RVec, ROption };
 use anyhow::Context;
 
 #[derive(Debug)]
@@ -75,5 +75,4 @@ impl ParamWithType {
             }
         }
     }
-
 }
