@@ -1,10 +1,8 @@
-use std::fmt::Debug;
-
-use abi_stable::std_types::{ROption, RString};
-use anyhow::{Result, bail};
+use abi_stable::std_types::{RString};
+use anyhow::{Result, bail, Ok};
 use libloading::Library;
 
-use crate::data::{FFIObject, FFISafeTuple, ObjectTypeInformation};
+use crate::data::{FFISafeTuple, ObjectTypeInformation, FnSignatureInformation};
 use crate::mock::PORT;
 use crate::{
     data::{ApiClient, Client, Configuration, ForgeResponse},
@@ -105,25 +103,18 @@ pub fn drop_api_client_if_exists(w: &mut ForgeWorld) -> Result<()> {
     }
 }
 
-pub fn run_method_no_params_with_return<T>(
-    w: &mut ForgeWorld,
-    method_name: &str,
-) -> Result<Box<ForgeResponse<T>>> {
-    unsafe {
-        let c_method = format!("c_api_client_{}", method_name);
+
+pub fn get_fn_signature(w: &mut ForgeWorld, method_name: &str) -> Result<FnSignatureInformation> {
+    unsafe{
+        let c_method = format!("c_api_client_{}_signature", method_name);
         let c_method_bytes = c_method.as_bytes();
         if let Some(library) = &w.library {
-            let func: libloading::Symbol<extern "C" fn(Box<ApiClient>) -> Box<ForgeResponse<T>>> =
+            let func: libloading::Symbol<extern "C" fn() -> FnSignatureInformation> =
                 library.get(c_method_bytes)?;
-            let api_client = w.api_client.take();
-            if let Some(api_client) = api_client {
-                let ret = func(api_client);
-                Ok(ret)
-            } else {
-                bail!("run_method_no_params_with_return api_client")
-            }
+            let info = func();
+            Ok(info)
         } else {
-            bail!("run_method_no_params_with_return")
+            bail!("get_fn_signature")
         }
     }
 }
@@ -147,17 +138,40 @@ pub fn serialize_returned_variable<T>(
     }
 }
 
-pub fn run_method_one_param<T>(
+pub fn run_method_no_params<T>(
     w: &mut ForgeWorld,
     method_name: &str,
-    arg_1: ROption<T>,
-) -> Result<Box<ForgeResponse<RString>>> {
+) -> Result<Box<ForgeResponse<T>>> {
+    unsafe {
+        let c_method = format!("c_api_client_{}", method_name);
+        let c_method_bytes = c_method.as_bytes();
+        if let Some(library) = &w.library {
+            let func: libloading::Symbol<extern "C" fn(Box<ApiClient>) -> Box<ForgeResponse<T>>> =
+                library.get(c_method_bytes)?;
+            let api_client = w.api_client.take();
+            if let Some(api_client) = api_client {
+                let ret = func(api_client);
+                Ok(ret)
+            } else {
+                bail!("run_method_no_params_with_return api_client")
+            }
+        } else {
+            bail!("run_method_no_params_with_return")
+        }
+    }
+}
+
+pub fn run_method_one_param<T, U>(
+    w: &mut ForgeWorld,
+    method_name: &str,
+    arg_1: T,
+) -> Result<Box<ForgeResponse<U>>> {
     unsafe {
         let c_method = format!("c_api_client_{}", method_name);
         let c_method_bytes = c_method.as_bytes();
         if let Some(library) = &w.library {
             let func: libloading::Symbol<
-                extern "C" fn(Box<ApiClient>, ROption<T>) -> Box<ForgeResponse<RString>>,
+                extern "C" fn(Box<ApiClient>, T) -> Box<ForgeResponse<U>>,
             > = library.get(c_method_bytes)?;
             let api_client = w.api_client.take();
             if let Some(api_client) = api_client {
@@ -172,12 +186,12 @@ pub fn run_method_one_param<T>(
     }
 }
 
-pub fn run_method_two_params<T: Debug, U: Debug>(
+pub fn run_method_two_params<T, U, V>(
     w: &mut ForgeWorld,
     method_name: &str,
-    arg_1: ROption<T>,
-    arg_2: ROption<U>,
-) -> Result<Box<ForgeResponse<RString>>> {
+    arg_1: T,
+    arg_2: U,
+) -> Result<Box<ForgeResponse<V>>> {
     unsafe {
         let c_method = format!("c_api_client_{}", method_name);
         let c_method_bytes = c_method.as_bytes();
@@ -185,9 +199,9 @@ pub fn run_method_two_params<T: Debug, U: Debug>(
             let func: libloading::Symbol<
                 extern "C" fn(
                     Box<ApiClient>,
-                    ROption<T>,
-                    ROption<U>,
-                ) -> Box<ForgeResponse<RString>>,
+                    T,
+                    U,
+                ) -> Box<ForgeResponse<V>>,
             > = library.get(c_method_bytes)?;
             let api_client = w.api_client.take();
             if let Some(api_client) = api_client {
@@ -202,32 +216,55 @@ pub fn run_method_two_params<T: Debug, U: Debug>(
     }
 }
 
-pub fn get_type_name(w: &mut ForgeWorld, struct_name: &str) -> Result<RString> {
-    let c_method = format!("c_{}_type_name_of_object", struct_name);
+pub fn run_method_three_params<T, U, V, W>(
+    w: &mut ForgeWorld,
+    method_name: &str,
+    arg_1: T,
+    arg_2: U,
+    arg_3: V,
+) -> Result<Box<ForgeResponse<W>>> {
+    unsafe {
+        let c_method = format!("c_api_client_{}", method_name);
+        let c_method_bytes = c_method.as_bytes();
+        if let Some(library) = &w.library {
+            let func: libloading::Symbol<
+                extern "C" fn(
+                    Box<ApiClient>,
+                    T,
+                    U,
+                    V,
+                ) -> Box<ForgeResponse<W>>,
+            > = library.get(c_method_bytes)?;
+            let api_client = w.api_client.take();
+            if let Some(api_client) = api_client {
+                let ret = func(api_client, arg_1, arg_2, arg_3);
+                Ok(ret)
+            } else {
+                bail!("run_method_three_params api_client")
+            }
+        } else {
+            bail!("run_method_three_params")
+        }
+    }
+}
+
+pub fn model_get_type_name(w: &mut ForgeWorld, struct_name: &str) -> Result<RString> {
+    let c_method = format!("c_{}_type_name", struct_name);
     let c_method_bytes = c_method.as_bytes();
     unsafe {
         if let Some(library) = &w.library {
             let func: libloading::Symbol<
-                extern "C" fn(Box<ForgeResponse<FFIObject>>) -> FFISafeTuple<FFIObject>,
+                extern "C" fn() -> RString,
             > = library.get(c_method_bytes)?;
-            let object_response = w.last_object_response.take();
-            if let Some(mut object_response) = object_response {
-                let actual = object_response.0;
-                let tuple = func(actual);
-                object_response.0 = tuple.0;
-                // put back the object
-                w.last_object_response = Some(object_response);
-                Ok(tuple.1)
-            } else {
-                bail!("get_type_name object response")
-            }
+            let type_name = func();
+            Ok(type_name)
         } else {
             bail!("get_type_name")
         }
     }
 }
 
-pub fn get_type_information(
+pub fn model_get_type_information(
     w: &mut ForgeWorld,
     struct_name: &str,
 ) -> Result<Box<ObjectTypeInformation>> {

@@ -1,6 +1,7 @@
 use std::marker::PhantomData;
 
-use abi_stable::std_types::{RHashMap, RString};
+use abi_stable::std_types::{RHashMap, RString, RVec, ROption};
+use anyhow::Context;
 
 #[derive(Debug)]
 #[repr(C)]
@@ -42,4 +43,37 @@ pub struct FFISafeTuple<T>(pub Box<ForgeResponse<T>>, pub RString);
 pub struct ObjectTypeInformation {
     pub name: RString,
     pub fields: RHashMap<RString, RString>,
+}
+
+#[repr(C)]
+pub struct FnSignatureInformation {
+    pub input_types: RVec<RString>,
+    pub return_type: RString,
+}
+
+#[derive(Debug, Clone)]
+pub enum ParamWithType {
+    Number(i32),
+    OptionalNumber(ROption<i32>),
+    String(RString),
+    OptionalString(ROption<RString>),
+}
+
+impl ParamWithType {
+    pub fn from(el: &str, el_type: &str) -> anyhow::Result<ParamWithType> {
+        let optional_flag = el_type.contains("Option<");
+        if el_type.contains("i32") {
+            let el = el.parse::<i32>().context("parse fail")?;
+            match optional_flag {
+                true => Ok(ParamWithType::OptionalNumber(ROption::RSome(el))),
+                false => Ok(ParamWithType::Number(el)),
+            }
+        } else {
+            match optional_flag {
+                true => Ok(ParamWithType::OptionalString(ROption::RSome(el.into()))),
+                false => Ok(ParamWithType::String(el.into())),
+            }
+        }
+    }
+
 }

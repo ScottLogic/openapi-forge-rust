@@ -30,10 +30,6 @@ use serde::{Serialize, Deserialize};
 #[derive(Debug)]
 pub struct FFISafeTuple<T>(pub Box<ForgeResponse<T>>,pub String);
 
-pub fn get_type_name<T>(_: &T) -> String {
-    core::any::type_name::<T>().into()
-}
-
 #[repr(C)]
 #[derive(Serialize)]
 pub struct ObjectTypeInformation {

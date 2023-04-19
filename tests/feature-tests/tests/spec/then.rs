@@ -8,7 +8,7 @@ use serde_json::{Value, json};
 use url::Url;
 use wiremock::http::Method;
 
-use crate::{ForgeWorld, ffi::{get_type_information, get_type_name}};
+use crate::{ForgeWorld, ffi::{model_get_type_information, model_get_type_name}};
 
 use crate::SERVER;
 
@@ -63,7 +63,7 @@ async fn requested_type_should_be(_w: &mut ForgeWorld, request_type: String) -> 
 #[then(expr = "the response should be of type {word}")]
 async fn response_type_should_be(w: &mut ForgeWorld, expected: String) -> Result<()> {
     let snake_name = expected.to_case(convert_case::Case::Snake);
-    let actual = get_type_name(w, &snake_name)?;
+    let actual = model_get_type_name(w, &snake_name)?;
     assert!(actual.contains(&expected));
     Ok(())
 }
@@ -98,7 +98,7 @@ async fn response_should_have_property(
 #[then(expr = "it should generate a model object named {word}")]
 async fn model_should_have_object(w: &mut ForgeWorld, expected: String) -> Result<()> {
     let snake_name = expected.to_case(convert_case::Case::Snake);
-    let info = get_type_information(w, &snake_name)?;
+    let info = model_get_type_information(w, &snake_name)?;
     let actual = info.name;
     assert!(actual.contains(&expected));
     Ok(())
@@ -113,12 +113,12 @@ async fn then_object_should_have_type(
     expected_type: String,
 ) -> Result<()> {
     let snake_name = object.to_case(convert_case::Case::Snake);
-    let info = get_type_information(w, &snake_name)?;
-    let expected_in_snake_case = RString::from(expected_name.to_case(convert_case::Case::Snake));
-    assert!(info.fields.contains_key(&expected_in_snake_case));
+    let info = model_get_type_information(w, &snake_name)?;
+    let expected_name_snake_case = RString::from(expected_name.to_case(convert_case::Case::Snake));
+    assert!(info.fields.contains_key(&expected_name_snake_case));
     let actual_type = info
         .fields
-        .get(&expected_in_snake_case)
+        .get(&expected_name_snake_case)
         .context("cannot get type from the map")?;
     match &expected_type[..] {
         "number" => {

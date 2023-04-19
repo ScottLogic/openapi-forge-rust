@@ -1,16 +1,17 @@
 use abi_stable::std_types::{ROption, RString};
-use anyhow::{bail, Context, Result};
+use anyhow::{bail, Context, Ok, Result};
 use convert_case::Casing;
 use cucumber::{gherkin::Step, when};
 
 use crate::{
-    data::FFIObject,
+    data::{FFIObject, ForgeResponse, ParamWithType},
     ffi::{
-        run_method_no_params_with_return, run_method_one_param, run_method_two_params,
+        get_fn_signature, run_method_no_params, run_method_one_param, run_method_two_params,
         serialize_returned_variable,
     },
+    mock::{set_mock_with_json_response, set_mock_with_string_response},
     util::{compile_generated_api, forge, hash_an_object, write_schema_to_file},
-    ForgeWorld, mock::{set_mock_with_string_response, set_mock_with_json_response},
+    ForgeWorld,
 };
 
 #[when(expr = "generating an API from the following specification")]
@@ -35,7 +36,7 @@ async fn api_specification_2(w: &mut ForgeWorld, step: &Step) -> Result<()> {
 async fn call_method_without_params(w: &mut ForgeWorld, method_name: String) -> Result<()> {
     let method_name = method_name.to_case(convert_case::Case::Snake);
     set_mock_with_string_response(&method_name).await?;
-    run_method_no_params_with_return::<RString>(w, &method_name)?;
+    run_method_no_params::<RString>(w, &method_name)?;
     Ok(())
 }
 
@@ -57,7 +58,7 @@ async fn call_method_with_server_responds(
     // add mock
     set_mock_with_json_response(raw_response_body).await?;
     // run method
-    let ffi_object = run_method_no_params_with_return::<FFIObject>(w, &method_name)?;
+    let ffi_object = run_method_no_params::<FFIObject>(w, &method_name)?;
     let tuple = serialize_returned_variable::<FFIObject>(w, &method_name, ffi_object)?;
     w.last_object_response = Some(tuple);
     Ok(())
@@ -80,41 +81,46 @@ async fn call_method_with_params(
     let list = trimmed.split(',').collect::<Vec<_>>();
     // add mock
     set_mock_with_string_response(&method_name).await?;
+    // get fn signature
+    let info = get_fn_signature(w, &method_name)?;
+
+    // check if input params are correct length
+    assert_eq!(list.len(), info.input_types.len());
+    // collect params
+    let params = list
+        .iter()
+        .zip(info.input_types)
+        .filter_map(|(el, el_type)| ParamWithType::from(el, &el_type).ok())
+        .collect::<Vec<_>>();
     // run method
-    match list.len() {
-        1 => match list[0].parse::<i32>() {
-            Ok(i) => run_method_one_param(w, &method_name, ROption::RSome(i))?,
-            Err(_) => {
-                run_method_one_param(w, &method_name, ROption::RSome(RString::from(list[0])))?
-            }
+    let ffi_object = match params.len() {
+        1 => match params[0].clone() {
+            ParamWithType::Number(el) => run_method_one_param(w, &method_name, el)?,
+            ParamWithType::OptionalNumber(el) => run_method_one_param(w, &method_name, el)?,
+            ParamWithType::String(el) => run_method_one_param(w, &method_name, el)?,
+            ParamWithType::OptionalString(el) => run_method_one_param(w, &method_name, el)?,
         },
-        2 => match (list[0].parse::<i32>(), list[1].parse::<i32>()) {
-            (Ok(i), Ok(j)) => {
-                run_method_two_params(w, &method_name, ROption::RSome(i), ROption::RSome(j))?
+        2 => match (params[0].clone(), params[1].clone()) {
+            (ParamWithType::String(el1), ParamWithType::String(el2)) => {
+                run_method_two_params(w, &method_name, el1, el2)?
             }
-            (Ok(i), Err(_)) => run_method_two_params(
-                w,
-                &method_name,
-                ROption::RSome(i),
-                ROption::RSome(RString::from(list[1])),
-            )?,
-            (Err(_), Ok(j)) => run_method_two_params(
-                w,
-                &method_name,
-                ROption::RSome(RString::from(list[0])),
-                ROption::RSome(j),
-            )?,
-            (Err(_), Err(_)) => run_method_two_params(
-                w,
-                &method_name,
-                ROption::RSome(RString::from(list[0])),
-                ROption::RSome(RString::from(list[1])),
-            )?,
+            (ParamWithType::String(el1), ParamWithType::OptionalString(el2)) => {
+                run_method_two_params(w, &method_name, el1, el2)?
+            }
+            (ParamWithType::OptionalString(el1), ParamWithType::OptionalNumber(el2)) => {
+                run_method_two_params(w, &method_name, el1, el2)?
+            }
+            (ParamWithType::OptionalString(el1), ParamWithType::String(el2)) => {
+                run_method_two_params(w, &method_name, el1, el2)?
+            }
+            (ParamWithType::OptionalString(el1), ParamWithType::OptionalString(el2)) => {
+                run_method_two_params(w, &method_name, el1, el2)?
+            }
+            _ => bail!("not covered all cases"),
         },
-        3 => {
-            todo!()
-        }
         _ => bail!("Too many arguments"),
     };
+    let tuple = serialize_returned_variable::<FFIObject>(w, &method_name, ffi_object)?;
+    w.last_object_response = Some(tuple);
     Ok(())
 }
