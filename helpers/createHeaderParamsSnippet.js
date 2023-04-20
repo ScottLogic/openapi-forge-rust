@@ -1,5 +1,5 @@
 const Handlebars = require("handlebars");
-const toParamName = require("./toParamName");
+const toParamName = require("./toRustParamName");
 const getParametersByType = require("./getParametersByType");
 const getSome = require("./getSome");
 
@@ -11,15 +11,22 @@ const createHeaderParamsSnippet = (sortedParams, is_cabi = false) => {
   //Add cookie parameters
   let cookieParams = getParametersByType(sortedParams, "cookie");
   if (cookieParams.length !== 0) {
-    let safeParamName = toParamName(cookieParams[0].name);
-    cookieParams = cookieParams.slice(1);
+    let cookie = "[";
     for (const cookieParam of cookieParams) {
       safeParamName = toParamName(cookieParam.name);
-      headerSnippet += pushToHeaderParam(
-        `reqwest::header::COOKIE`,
-        `format!("{}={}", ${cookieParams[0].name},${safeParamName})`
-      );
+      if (cookieParam._optional) {
+        cookie +=
+          `if let ` +
+          getSome(is_cabi) +
+          `(${safeParamName}) = ${safeParamName} { ` +
+          `format!("${cookieParam.name}={}",${safeParamName})` +
+          `} else { "".into() } ,`;
+      } else {
+        `&format!("${cookieParam.name}={}",${safeParamName}),`;
+      }
     }
+    cookie += `].join(";")\n`;
+    headerSnippet += pushToHeaderParam(`reqwest::header::COOKIE`, cookie);
     headerSnippet += "\n";
   }
 

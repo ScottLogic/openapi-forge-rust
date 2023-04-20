@@ -6,7 +6,7 @@ use convert_case::Casing;
 use cucumber::then;
 use serde_json::{ json, Value };
 use url::Url;
-use wiremock::http::{ Method };
+use wiremock::http::{ HeaderName, Method };
 
 use crate::{ ffi::{ model_get_type_information, model_get_type_name }, ForgeWorld };
 
@@ -160,6 +160,22 @@ async fn request_should_have_body(_w: &mut ForgeWorld, body: String) -> Result<(
             assert!(req.len() > 0);
             let last_req = &req[req.len() - 1];
             assert_eq!(String::from_utf8(last_req.body.clone())?, body);
+        }
+    }
+    Ok(())
+}
+
+#[then(regex = r"the request header should have a cookie property with value (\S+)")]
+async fn request_header_should_have_cookie(_w: &mut ForgeWorld, cookie_str: String) -> Result<()> {
+    if let Some(server) = SERVER.get() {
+        if let Some(req) = server.received_requests().await {
+            assert!(req.len() > 0);
+            let last_req = &req[req.len() - 1];
+            if let Some(cookie_value) = last_req.headers.get(&HeaderName::from("cookie")) {
+                assert!(cookie_value.iter().any(|h| *h == cookie_str));
+            } else {
+                bail!("no cookie");
+            }
         }
     }
     Ok(())
