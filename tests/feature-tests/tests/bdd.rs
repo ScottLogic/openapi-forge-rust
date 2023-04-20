@@ -16,7 +16,7 @@ use ffi::{
     run_config_idx_change,
 };
 use libloading::Library;
-use mock::{ remove_mocks, SERVER };
+use mock::{ reset_server, SERVER };
 
 use crate::mock::PORT;
 
@@ -71,7 +71,7 @@ async fn main() -> Result<()> {
     util::create_project_parent_dir().await?;
     mock::init_mock_server(PORT).await?;
     ForgeWorld::cucumber()
-        .after(|_, _, _, _, _| Box::pin(remove_mocks()))
+        .after(|_, _, _, _, _| Box::pin(reset_server()))
         .run("tests/features").await;
     util::clean_up_all().await?;
     Ok(())

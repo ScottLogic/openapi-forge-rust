@@ -29,11 +29,6 @@ async fn requested_url(_w: &mut ForgeWorld, url: String) -> Result<()> {
             assert_eq!(expected_query, actual_query);
         }
     }
-
-    // remove mocks
-    if let Some(server) = SERVER.get() {
-        server.reset().await;
-    }
     Ok(())
 }
 
@@ -70,7 +65,6 @@ async fn request_should_have_header(_w: &mut ForgeWorld, value: String) -> Resul
             assert!(header_values.contains(&&value[..]));
         }
     }
-
     Ok(())
 }
 
@@ -119,7 +113,7 @@ async fn model_should_have_object(w: &mut ForgeWorld, expected: String) -> Resul
 }
 
 #[then(regex = r"(\S+) should have an? (\S+) property named (\S+) of type (\S+)")]
-async fn then_object_should_have_type(
+async fn object_should_have_type(
     w: &mut ForgeWorld,
     object: String,
     modifier: String,
@@ -154,6 +148,18 @@ async fn then_object_should_have_type(
         }
         _ => {
             bail!("unrecognised modifier");
+        }
+    }
+    Ok(())
+}
+
+#[then(regex = r"the request should have a body with value (\S+)")]
+async fn request_should_have_body(_w: &mut ForgeWorld, body: String) -> Result<()> {
+    if let Some(server) = SERVER.get() {
+        if let Some(req) = server.received_requests().await {
+            assert!(req.len() > 0);
+            let last_req = &req[req.len() - 1];
+            assert_eq!(String::from_utf8(last_req.body.clone())?, body);
         }
     }
     Ok(())

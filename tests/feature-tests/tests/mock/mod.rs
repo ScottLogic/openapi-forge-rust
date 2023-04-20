@@ -38,8 +38,8 @@ pub async fn set_mock_with_json_response(raw_response: &str) -> Result<()> {
     Ok(())
 }
 
-pub async fn remove_mocks() {
+pub async fn reset_server() {
     if let Some(server) = SERVER.get() {
         server.reset().await;
-    }
+    } 
 }
