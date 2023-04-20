@@ -46,6 +46,7 @@ pub struct ObjectTypeInformation {
 }
 
 #[repr(C)]
+#[derive(Debug)]
 pub struct FnSignatureInformation {
     pub input_types: RVec<RString>,
     pub return_type: RString,

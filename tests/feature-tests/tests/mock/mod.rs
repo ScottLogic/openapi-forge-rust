@@ -15,6 +15,7 @@ pub async fn init_mock_server(port: u16) -> Result<()> {
 }
 
 pub async fn set_mock_with_string_response(response: &str) -> Result<()> {
+    reset_server().await?;
     if let Some(server) = SERVER.get() {
         Mock::given(matchers::any())
             .respond_with(ResponseTemplate::new(200).set_body_string(response))
@@ -27,6 +28,7 @@ pub async fn set_mock_with_string_response(response: &str) -> Result<()> {
 }
 
 pub async fn set_mock_with_json_response(raw_response: &str) -> Result<()> {
+    reset_server().await?;
     if let Some(server) = SERVER.get() {
         Mock::given(matchers::any())
             .respond_with(ResponseTemplate::new(200).set_body_raw(raw_response, "application/json"))
@@ -38,8 +40,11 @@ pub async fn set_mock_with_json_response(raw_response: &str) -> Result<()> {
     Ok(())
 }
 
-pub async fn reset_server() {
+pub async fn reset_server() -> Result<()> {
     if let Some(server) = SERVER.get() {
         server.reset().await;
+        Ok(())
+    } else {
+        bail!("Mock server cannot be accessed");
     }
 }

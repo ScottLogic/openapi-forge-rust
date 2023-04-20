@@ -40,6 +40,7 @@ async fn api_specification_2(w: &mut ForgeWorld, step: &Step) -> Result<()> {
 async fn call_method_without_params(w: &mut ForgeWorld, method_name: String) -> Result<()> {
     let method_name = method_name.to_case(convert_case::Case::Snake);
     set_mock_with_string_response(&method_name).await?;
+    // TODO: check fn signature for all methods
     run_method_no_params::<RString>(w, &method_name)?;
     Ok(())
 }
@@ -56,6 +57,10 @@ async fn call_method_with_server_responds(
     method_name: String,
     step: &Step
 ) -> Result<()> {
+    // make sure api_client exists
+    if w.api_client.is_none() {
+        w.set_reset_client(None)?;
+    }
     // schema
     let raw_response_body = step.docstring().context("response body not found")?.trim();
     let method_name = method_name.to_case(convert_case::Case::Snake);
@@ -65,6 +70,8 @@ async fn call_method_with_server_responds(
     let ffi_object = run_method_no_params::<FFIObject>(w, &method_name)?;
     let tuple = serialize_returned_variable::<FFIObject>(w, &method_name, ffi_object)?;
     w.last_object_response = Some(tuple);
+    let info = get_fn_signature(w, &method_name)?;
+    w.last_method_call_sign = Some(info);
     Ok(())
 }
 
@@ -149,6 +156,8 @@ async fn call_method_with_array(
     // there should be one input type of Vec
     assert_eq!(info.input_types.len(), 1);
     assert!(info.input_types[0].contains("Vec"));
+    // put info into world
+    w.last_method_call_sign = Some(info);
     let ffi_object = run_method_one_param(w, &method_name, list)?;
     let tuple = serialize_returned_variable::<FFIObject>(w, &method_name, ffi_object)?;
     w.last_object_response = Some(tuple);

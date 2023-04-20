@@ -16,7 +16,7 @@ use ffi::{
     run_config_idx_change,
 };
 use libloading::Library;
-use mock::{ reset_server, SERVER };
+use mock::{ SERVER };
 
 use crate::mock::PORT;
 
@@ -29,6 +29,7 @@ pub struct ForgeWorld {
     http_client: Option<Box<Client>>,
     api_client: Option<Box<ApiClient>>,
     last_object_response: Option<FFISafeTuple<FFIObject>>,
+    last_method_call_sign: Option<FnSignatureInformation>
 }
 
 impl ForgeWorld {
@@ -40,6 +41,7 @@ impl ForgeWorld {
             http_client: None,
             api_client: None,
             last_object_response: None,
+            last_method_call_sign: None,
         }
     }
 
@@ -71,7 +73,6 @@ async fn main() -> Result<()> {
     util::create_project_parent_dir().await?;
     mock::init_mock_server(PORT).await?;
     ForgeWorld::cucumber()
-        .after(|_, _, _, _, _| Box::pin(reset_server()))
         .run("tests/features").await;
     util::clean_up_all().await?;
     Ok(())

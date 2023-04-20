@@ -8,7 +8,7 @@ use serde_json::{ json, Value };
 use url::Url;
 use wiremock::http::{ HeaderName, Method };
 
-use crate::{ ffi::{ model_get_type_information, model_get_type_name }, ForgeWorld };
+use crate::{ ffi::{ model_get_type_information }, ForgeWorld };
 
 use crate::SERVER;
 
@@ -70,9 +70,11 @@ async fn request_should_have_header(_w: &mut ForgeWorld, value: String) -> Resul
 
 #[then(expr = "the response should be of type {word}")]
 async fn response_type_should_be(w: &mut ForgeWorld, expected: String) -> Result<()> {
-    let snake_name = expected.to_case(convert_case::Case::Snake);
-    let actual = model_get_type_name(w, &snake_name)?;
-    assert!(actual.contains(&expected));
+    if let Some(last_call) = &w.last_method_call_sign {
+        assert_eq!(&last_call.return_type, &expected);
+    } else {
+        bail!("no last call");
+    }
     Ok(())
 }
 
