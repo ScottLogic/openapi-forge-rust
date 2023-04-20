@@ -1,5 +1,5 @@
-use anyhow::{ Result, bail };
-use wiremock::{ MockServer, Mock, matchers, ResponseTemplate };
+use anyhow::{ bail, Result };
+use wiremock::{ matchers, Mock, MockServer, ResponseTemplate };
 
 use once_cell::sync::OnceCell;
 
@@ -36,4 +36,10 @@ pub async fn set_mock_with_json_response(raw_response: &str) -> Result<()> {
         bail!("Mock server cannot be accessed");
     }
     Ok(())
+}
+
+pub async fn remove_mocks() {
+    if let Some(server) = SERVER.get() {
+        server.reset().await;
+    }
 }

@@ -1,3 +1,3 @@
-const toAllCapital = (name) => name.toUpperCase()
+const toAllCapital = (name) => name.toUpperCase();
 
 module.exports = toAllCapital;

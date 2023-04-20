@@ -11,7 +11,7 @@ use crate::{
         run_method_one_param,
         run_method_two_params,
         serialize_returned_variable,
-        run_method_one_param_from_deser,
+        run_method_one_serialized_param,
     },
     mock::{ set_mock_with_json_response, set_mock_with_string_response },
     util::{ compile_generated_api, forge, hash_an_object, write_schema_to_file },
@@ -166,10 +166,10 @@ async fn call_method_with_object(
     set_mock_with_string_response(&method_name).await?;
     // get fn signature
     let info = get_fn_signature(w, &method_name)?;
-    // there should be one input type of InlineObject
+    // there should be one input type of InlineObject[0-9]*
     assert_eq!(info.input_types.len(), 1);
     assert!(info.input_types[0].contains("InlineObject"));
-    let ffi_object = run_method_one_param_from_deser(w, &method_name, RString::from(json_str))?;
+    let ffi_object = run_method_one_serialized_param(w, &method_name, RString::from(json_str))?;
     let tuple = serialize_returned_variable::<FFIObject>(w, &method_name, ffi_object)?;
     w.last_object_response = Some(tuple);
     Ok(())

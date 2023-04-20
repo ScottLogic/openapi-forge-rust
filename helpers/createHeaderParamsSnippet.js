@@ -1,28 +1,32 @@
 const Handlebars = require("handlebars");
 const toParamName = require("./toParamName");
 const getParametersByType = require("./getParametersByType");
+const getSome = require("./getSome");
 
-const createHeaderParamsSnippet = (sortedParams) => {
-  let headerSnippet = "";
+const pushToHeaderParam = (name, value) =>
+  `headers.insert(${name}, reqwest::header::HeaderValue::from_str(&${value})?);`;
 
+const createHeaderParamsSnippet = (sortedParams, is_cabi = false) => {
+  let headerSnippet = `let mut headers = reqwest::header::HeaderMap::new();\n`;
   //Add cookie parameters
   let cookieParams = getParametersByType(sortedParams, "cookie");
   if (cookieParams.length !== 0) {
     let safeParamName = toParamName(cookieParams[0].name);
-    headerSnippet += `.addHeader("cookie", "${cookieParams[0].name}="+${safeParamName}`;
     cookieParams = cookieParams.slice(1);
     for (const cookieParam of cookieParams) {
       safeParamName = toParamName(cookieParam.name);
-      headerSnippet += ` + ";${cookieParam.name}=" + ${safeParamName}`;
+      headerSnippet += pushToHeaderParam(
+        `reqwest::header::COOKIE`,
+        `format!("{}={}", ${cookieParams[0].name},${safeParamName})`
+      );
     }
-    headerSnippet += ")\n";
+    headerSnippet += "\n";
   }
 
   const headerParams = getParametersByType(sortedParams, "header");
   if (headerParams.length === 0) {
     return new Handlebars.SafeString(headerSnippet);
   }
-
   for (const headerParam of headerParams) {
     // only supports default serialization: style: simple & explode: false
     if (headerParam.content) {
@@ -31,7 +35,10 @@ const createHeaderParamsSnippet = (sortedParams) => {
     const safeParamName = toParamName(headerParam.name);
     switch (headerParam.schema.type) {
       case "array":
-        headerSnippet += `.addHeader("${headerParam.name}", String.join(",", ${safeParamName}))`;
+        headerSnippet += pushToHeaderParam(
+          headerParam.name,
+          `${safeParamName}.join(",")`
+        );
         break;
       case "object": {
         let serialisedObject = "";
@@ -40,14 +47,26 @@ const createHeaderParamsSnippet = (sortedParams) => {
         )) {
           serialisedObject += `${propName},${safeParamName}.${propName}`;
         }
-        headerSnippet += `.addHeader("${headerParam.name}", ${serialisedObject})`;
+        headerSnippet += pushToHeaderParam(headerParam.name, serialisedObject);
         break;
       }
-      default:
-        headerSnippet += `.addHeader("${headerParam.name}", ${safeParamName})`;
+      default: {
+        if (!headerParam.required) {
+          headerSnippet +=
+            `if let ` +
+            getSome(is_cabi) +
+            `(${safeParamName}) = ${safeParamName} { ` +
+            pushToHeaderParam(`"${headerParam.name}"`, safeParamName) +
+            `}`;
+        } else {
+          headerSnippet += pushToHeaderParam(
+            `"${headerParam.name}"`,
+            safeParamName
+          );
+        }
+      }
     }
   }
-
   return new Handlebars.SafeString(headerSnippet);
 };
 

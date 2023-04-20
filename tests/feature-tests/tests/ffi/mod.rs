@@ -188,13 +188,13 @@ pub fn run_method_one_param<T, U>(
     }
 }
 
-pub fn run_method_one_param_from_deser<T>(
+pub fn run_method_one_serialized_param<T>(
     w: &mut ForgeWorld,
     method_name: &str,
     arg_1: RString
 ) -> Result<Box<ForgeResponse<T>>> {
     unsafe {
-        let c_method = format!("c_api_client_{}_from_deserialized", method_name);
+        let c_method = format!("c_api_client_{}_serialized_params", method_name);
         let c_method_bytes = c_method.as_bytes();
         if let Some(library) = &w.library {
             let func: libloading::Symbol<
@@ -205,10 +205,10 @@ pub fn run_method_one_param_from_deser<T>(
                 let ret = func(api_client, arg_1);
                 Ok(ret)
             } else {
-                bail!("run_method_one_param api_client")
+                bail!("run_method_one_serialized_param api_client")
             }
         } else {
-            bail!("run_method_one_param")
+            bail!("run_method_one_serialized_param")
         }
     }
 }

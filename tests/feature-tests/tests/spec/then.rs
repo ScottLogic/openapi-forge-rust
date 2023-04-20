@@ -1,14 +1,14 @@
 use std::{ collections::HashSet, path::Path, str::FromStr };
 
 use abi_stable::std_types::RString;
-use anyhow::{ Result, bail, Context };
+use anyhow::{ bail, Context, Result };
 use convert_case::Casing;
 use cucumber::then;
-use serde_json::{ Value, json };
+use serde_json::{ json, Value };
 use url::Url;
-use wiremock::http::Method;
+use wiremock::http::{ Method };
 
-use crate::{ ForgeWorld, ffi::{ model_get_type_information, model_get_type_name } };
+use crate::{ ffi::{ model_get_type_information, model_get_type_name }, ForgeWorld };
 
 use crate::SERVER;
 
@@ -52,11 +52,25 @@ async fn requested_type_should_be(_w: &mut ForgeWorld, request_type: String) -> 
             }
         }
     }
+    Ok(())
+}
 
-    // remove mocks
+#[then(expr = "the request should have a header property with value {word}")]
+async fn request_should_have_header(_w: &mut ForgeWorld, value: String) -> Result<()> {
     if let Some(server) = SERVER.get() {
-        server.reset().await;
+        if let Some(req) = server.received_requests().await {
+            assert!(req.len() > 0);
+            let last_req = &req[req.len() - 1];
+            let headers = &last_req.headers;
+            let header_values = headers
+                .values()
+                .flatten()
+                .map(|h| h.as_str())
+                .collect::<Vec<_>>();
+            assert!(header_values.contains(&&value[..]));
+        }
     }
+
     Ok(())
 }
 

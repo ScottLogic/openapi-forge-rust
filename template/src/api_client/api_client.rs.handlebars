@@ -78,9 +78,15 @@ impl ApiClient{{_tag.name}} {
         {{#if (queryParametersExist _sortedParameters)}}
         {{createQueryStringSnippet _sortedParameters @root.cabi}}
         {{/if}}
-        let response = self.client. request(Method::{{toAllCapital @key}}, request_uri)
+        {{#if (headerParametersExist _sortedParameters)}}
+        {{createHeaderParamsSnippet _sortedParameters @root.cabi}}
+        {{/if}}
+        let response = self.client.request(Method::{{toAllCapital @key}}, request_uri)
         {{#if (queryParametersExist _sortedParameters)}}
         .query(&query_params)
+        {{/if}}
+        {{#if (headerParametersExist _sortedParameters)}}
+        .headers(headers)
         {{/if}}
         {{#if (bodyParameterExists _sortedParameters)}}
         .json(&body)
@@ -174,7 +180,7 @@ pub extern "C" fn c_api_client{{toRustParamName _tag.name}}_{{toRustParamName op
 }
 
 #[no_mangle]
-pub extern "C" fn c_api_client{{toRustParamName _tag.name}}_{{toRustParamName operationId}}_from_deserialized ( 
+pub extern "C" fn c_api_client{{toRustParamName _tag.name}}_{{toRustParamName operationId}}_serialized_params ( 
     api_client: Box<ApiClient{{_tag.name}}>,
     {{~#each _sortedParameters ~}}
     {{toRustParamName name ~}}: String,
