@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use abi_stable::std_types::{ RHashMap, RString, RVec, ROption };
+use abi_stable::std_types::{RHashMap, ROption, RString, RVec};
 use anyhow::Context;
 
 #[derive(Debug)]
@@ -54,26 +54,39 @@ pub struct FnSignatureInformation {
 
 #[derive(Debug, Clone)]
 pub enum ParamWithType {
+    None,
     Number(i32),
     OptionalNumber(ROption<i32>),
     String(RString),
     OptionalString(ROption<RString>),
+    OptionalDouble(ROption<f64>),
+    Double(f64),
 }
 
 impl ParamWithType {
-    pub fn from(el: &str, el_type: &str) -> anyhow::Result<ParamWithType> {
-        let optional_flag = el_type.contains("Option<");
-        if el_type.contains("i32") {
-            let el = el.parse::<i32>().context("parse fail")?;
-            match optional_flag {
-                true => Ok(ParamWithType::OptionalNumber(ROption::RSome(el))),
-                false => Ok(ParamWithType::Number(el)),
+    pub fn from(el: Option<&str>, el_type: &str) -> anyhow::Result<ParamWithType> {
+        if let Some(el) = el {
+            let optional_flag = el_type.contains("Option<");
+            if el_type.contains("i32") {
+                let el = el.parse::<i32>().context("parse fail")?;
+                match optional_flag {
+                    true => Ok(ParamWithType::OptionalNumber(ROption::RSome(el))),
+                    false => Ok(ParamWithType::Number(el)),
+                }
+            } else if el_type.contains("f64") {
+                let el = el.parse::<f64>().context("parse fail")?;
+                match optional_flag {
+                    true => Ok(ParamWithType::OptionalDouble(ROption::RSome(el))),
+                    false => Ok(ParamWithType::Double(el)),
+                }
+            } else {
+                match optional_flag {
+                    true => Ok(ParamWithType::OptionalString(ROption::RSome(el.into()))),
+                    false => Ok(ParamWithType::String(el.into())),
+                }
             }
         } else {
-            match optional_flag {
-                true => Ok(ParamWithType::OptionalString(ROption::RSome(el.into()))),
-                false => Ok(ParamWithType::String(el.into())),
-            }
+            Ok(ParamWithType::None)
         }
     }
 }

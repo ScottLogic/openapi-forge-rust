@@ -1,4 +1,5 @@
 const Handlebars = require("handlebars");
+const toRustParamName = require("./toRustParamName");
 const toParamName = require("./toParamName");
 const getParametersByType = require("./getParametersByType");
 const getSome = require("./getSome");
@@ -8,7 +9,7 @@ const isRequired = (typeDef) => {
 };
 
 const pushToQueryParam = (name, value) =>
-  `query_params.push(("${name}".to_string().into(), ${value}.to_string().into()));`;
+  `query_params.push(("${name}".to_string().into(), ${toRustParamName(value)}.to_string().into()));`;
 
 const serialiseArrayParam = (param, is_required = false) => {
   const safeParamName = toParamName(param.name);
@@ -23,12 +24,11 @@ const serialiseObjectParam = (param, is_required = false, is_cabi = false) => {
   const safeParamName = toParamName(param.name);
   let serialisedObject = "";
   for (const [propName, objProp] of Object.entries(param.schema.properties)) {
-    let res = "";
     if (!isRequired(objProp)) {
       res =
         `if let ` +
         getSome(is_cabi) +
-        `(${propName}) = ${safeParamName}.${propName} { ` +
+        `(${toRustParamName(propName)}) = &${safeParamName}.${toRustParamName(propName)} { ` +
         pushToQueryParam(propName, propName) +
         ` }`;
     } else {
@@ -36,17 +36,17 @@ const serialiseObjectParam = (param, is_required = false, is_cabi = false) => {
     }
 
     if (!is_required) {
-      return (
+      serialisedObject +=
         `if let ` +
         getSome(is_cabi) +
-        `(${safeParamName}) = ${safeParamName} { ${res}  }`
-      );
+        `(${safeParamName}) = &${safeParamName} { ${res}  }`
+        ;
     } else {
-      return res;
+      serialisedObject += res;
     }
   }
 
-  return `${serialisedObject.slice(0, -1)}`;
+  return serialisedObject;
 };
 
 const serialisePrimitive = (param, is_required = false, is_cabi = false) => {
@@ -56,7 +56,7 @@ const serialisePrimitive = (param, is_required = false, is_cabi = false) => {
     return (
       `if let ` +
       getSome(is_cabi) +
-      `(${safeParamName}) = ${safeParamName} { ${inner}  }`
+      `(${toRustParamName(safeParamName)}) = ${toRustParamName(safeParamName)} { ${inner}  }`
     );
   } else {
     return inner;
@@ -78,21 +78,21 @@ const createQueryStringSnippet = (params, is_cabi = false) => {
       case "array":
         serialisedQueryParam = serialiseArrayParam(
           queryParam,
-          queryParam.schema._required,
+          queryParam.required,
           is_cabi
         );
         break;
       case "object":
         serialisedQueryParam = serialiseObjectParam(
           queryParam,
-          queryParam.schema._required,
+          queryParam.required,
           is_cabi
         );
         break;
       default:
         serialisedQueryParam = serialisePrimitive(
           queryParam,
-          queryParam.schema._required,
+          queryParam.required,
           is_cabi
         );
         break;

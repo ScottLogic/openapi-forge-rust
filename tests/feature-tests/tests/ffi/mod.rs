@@ -259,7 +259,7 @@ pub fn run_method_two_params<T, U, V>(
     }
 }
 
-pub fn _run_method_three_params<T, U, V, W>(
+pub fn run_method_three_params<T, U, V, W>(
     w: &mut ForgeWorld,
     method_name: &str,
     arg_1: T,
