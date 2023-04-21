@@ -269,12 +269,13 @@ async fn call_method_with_object(
     set_mock_with_string_response(&method_name).await?;
     // get fn signature
     let info = get_fn_signature(w, &method_name)?;
-    // there should be one input type of InlineObject[0-9]*
+    // there should be one input type of InlineObject[0-9]* or ObjectResponse
     assert_eq!(info.input_types.len(), 1);
-    assert!(info.input_types[0].contains("InlineObject"));
+    assert!(info.input_types[0].contains("Object"));
     let ffi_object = run_method_one_serialized_param(w, &method_name, RString::from(json_str))?;
     let tuple = serialize_returned_variable::<FFIObject>(w, &method_name, ffi_object)?;
     w.last_object_response = Some(tuple);
+    w.last_fn_call_sign = Some(info);
     Ok(())
 }
 
