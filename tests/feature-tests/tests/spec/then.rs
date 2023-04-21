@@ -8,8 +8,8 @@ use serde_json::{json, Value};
 use url::Url;
 use wiremock::http::{HeaderName, Method};
 
-use crate::ffi::check_method_exists;
-use crate::{ffi::model_get_type_information, ForgeWorld};
+use crate::ffi::call::check_method_exists;
+use crate::{ffi::call::model_get_type_information, ForgeWorld};
 
 use crate::SERVER;
 

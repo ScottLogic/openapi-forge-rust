@@ -1,21 +1,21 @@
-use anyhow::{ Ok, Result };
+use anyhow::{Ok, Result};
 use std::collections::hash_map::DefaultHasher;
-use std::hash::{ Hash, Hasher };
-use tokio::fs::{ DirBuilder, File, OpenOptions };
-use tokio::io::{ AsyncBufReadExt, AsyncWriteExt, BufReader };
+use std::hash::{Hash, Hasher};
+use tokio::fs::{DirBuilder, File, OpenOptions};
+use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::Command;
 
-const GENERATED_API_PARENT: &str = "generated-api";
+const GENERATED_API_PARENT: &str = ".generated-apis";
 
 macro_rules! get_schema_path {
     ($expression:expr) => {
-        format!("generated-api/schema_{}.json", $expression)
+        format!("{}/schema_{}.json", GENERATED_API_PARENT, $expression)
     };
 }
 
 macro_rules! get_generated_api_path {
     ($expression:expr) => {
-        format!("generated-api/project_{}", $expression)
+        format!("{}/project_{}", GENERATED_API_PARENT, $expression)
     };
 }
 
@@ -71,7 +71,10 @@ pub async fn compile_generated_api(modifier: u64) -> Result<()> {
     Ok(())
 }
 
-pub fn hash_an_object<T>(obj: T) -> u64 where T: Hash {
+pub fn hash_an_object<T>(obj: T) -> u64
+where
+    T: Hash,
+{
     let mut hasher = DefaultHasher::new();
     obj.hash(&mut hasher);
     hasher.finish()
@@ -83,7 +86,8 @@ pub fn hash_an_object<T>(obj: T) -> u64 where T: Hash {
 pub async fn change_project_name(modifier: u64) -> Result<()> {
     let file = OpenOptions::new()
         .read(true)
-        .open(get_generated_api_path!(modifier) + "/Cargo.toml").await?;
+        .open(get_generated_api_path!(modifier) + "/Cargo.toml")
+        .await?;
     let mut line_reader = BufReader::new(file).lines();
     let mut contents = vec![];
     while let Some(line) = line_reader.next_line().await? {
@@ -94,7 +98,8 @@ pub async fn change_project_name(modifier: u64) -> Result<()> {
         .read(true)
         .write(true)
         .truncate(true)
-        .open(get_generated_api_path!(modifier) + "/Cargo.toml").await?;
+        .open(get_generated_api_path!(modifier) + "/Cargo.toml")
+        .await?;
     contents[1] = format!("name = \"openapi_forge_project_{}\"", modifier);
     // truncate
     file.set_len(0).await?;
@@ -104,6 +109,9 @@ pub async fn change_project_name(modifier: u64) -> Result<()> {
 }
 
 pub async fn create_project_parent_dir() -> Result<()> {
-    DirBuilder::new().recursive(true).create(GENERATED_API_PARENT).await?;
+    DirBuilder::new()
+        .recursive(true)
+        .create(GENERATED_API_PARENT)
+        .await?;
     Ok(())
 }
