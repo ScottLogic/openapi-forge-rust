@@ -41,19 +41,29 @@ async fn api_specification_2(w: &mut ForgeWorld, step: &Step) -> Result<()> {
 
 #[when(expr = "calling the method {word} without params")]
 async fn call_method_without_params(w: &mut ForgeWorld, method_name: String) -> Result<()> {
+    // make sure api_client exists
+    if w.api_client.is_none() {
+        w.set_reset_client(None, None)?;
+    }
     let method_name = method_name.to_case(convert_case::Case::Snake);
     set_mock_with_string_response(&method_name).await?;
-    let fn_signature = get_fn_signature(w, &method_name)?;
+    let api_client_name = w.api_client_name.clone().context("No client name")?;
+    let fn_signature = get_fn_signature(w, &api_client_name, &method_name)?;
     let params = get_fn_params(vec![], fn_signature.input_types.clone());
     match fn_signature.return_type.as_str() {
         "String" => {
-            let response = get_response::<RString>(w, &method_name, params)?;
-            let inner = returned_value_to_inner(w, &method_name, response)?;
+            let response = get_response::<RString>(w, &api_client_name, &method_name, params)?;
+            let inner = returned_value_to_inner(w, &api_client_name, &method_name, response)?;
             w.last_string_response = Some(*inner);
         }
         _complex => {
-            let ffi_object = get_response::<FFIObject>(w, &method_name, params)?;
-            let tuple = serialize_returned_variable::<FFIObject>(w, &method_name, ffi_object)?;
+            let ffi_object = get_response::<FFIObject>(w, &api_client_name, &method_name, params)?;
+            let tuple = serialize_returned_variable::<FFIObject>(
+                w,
+                &api_client_name,
+                &method_name,
+                ffi_object,
+            )?;
             w.last_object_response = Some(tuple);
         }
     }
@@ -75,25 +85,31 @@ async fn call_method_with_server_responds(
 ) -> Result<()> {
     // make sure api_client exists
     if w.api_client.is_none() {
-        w.set_reset_client(None)?;
+        w.set_reset_client(None, None)?;
     }
     // schema
     let raw_response_body = step.docstring().context("response body not found")?.trim();
     let method_name = method_name.to_case(convert_case::Case::Snake);
     // add mock
     set_mock_with_json_response(raw_response_body).await?;
+    let api_client_name = w.api_client_name.clone().context("No client name")?;
     // fn
-    let info = get_fn_signature(w, &method_name)?;
+    let info = get_fn_signature(w, &api_client_name, &method_name)?;
     // run method
     match info.return_type.as_str() {
         "String" => {
-            let response = get_response::<RString>(w, &method_name, vec![])?;
-            let inner = returned_value_to_inner(w, &method_name, response)?;
+            let response = get_response::<RString>(w, &api_client_name, &method_name, vec![])?;
+            let inner = returned_value_to_inner(w, &api_client_name, &method_name, response)?;
             w.last_string_response = Some(*inner);
         }
         _complex => {
-            let ffi_object = get_response::<FFIObject>(w, &method_name, vec![])?;
-            let tuple = serialize_returned_variable::<FFIObject>(w, &method_name, ffi_object)?;
+            let ffi_object = get_response::<FFIObject>(w, &api_client_name, &method_name, vec![])?;
+            let tuple = serialize_returned_variable::<FFIObject>(
+                w,
+                &api_client_name,
+                &method_name,
+                ffi_object,
+            )?;
             w.last_object_response = Some(tuple);
         }
     }
@@ -103,7 +119,7 @@ async fn call_method_with_server_responds(
 
 #[when(expr = "selecting the server at index {int}")]
 async fn when_selecting_index(w: &mut ForgeWorld, idx: u8) -> Result<()> {
-    w.set_reset_client(Some(idx))?;
+    w.set_reset_client(Some(idx), None)?;
     Ok(())
 }
 
@@ -115,28 +131,34 @@ async fn call_method_with_params(
 ) -> Result<()> {
     // make sure api_client exists
     if w.api_client.is_none() {
-        w.set_reset_client(None)?;
+        w.set_reset_client(None, None)?;
     }
     let method_name = method_name.to_case(convert_case::Case::Snake);
     let trimmed = &params[1..params.len() - 1];
     let list = trimmed.split(',').collect::<Vec<_>>();
+    let api_client_name = w.api_client_name.clone().context("No client name")?;
     // add mock
     set_mock_with_string_response(&method_name).await?;
     // get fn signature
-    let info = get_fn_signature(w, &method_name)?;
+    let info = get_fn_signature(w, &api_client_name, &method_name)?;
     let return_type = &info.return_type;
     // collect params
     let params = get_fn_params(list, info.input_types.clone());
     // run method
     match return_type.as_str() {
         "String" => {
-            let response = get_response::<RString>(w, &method_name, params)?;
-            let inner = returned_value_to_inner(w, &method_name, response)?;
+            let response = get_response::<RString>(w, &api_client_name, &method_name, params)?;
+            let inner = returned_value_to_inner(w, &api_client_name, &method_name, response)?;
             w.last_string_response = Some(*inner);
         }
         _complex => {
-            let ffi_object = get_response::<FFIObject>(w, &method_name, params)?;
-            let tuple = serialize_returned_variable::<FFIObject>(w, &method_name, ffi_object)?;
+            let ffi_object = get_response::<FFIObject>(w, &api_client_name, &method_name, params)?;
+            let tuple = serialize_returned_variable::<FFIObject>(
+                w,
+                &api_client_name,
+                &method_name,
+                ffi_object,
+            )?;
             w.last_object_response = Some(tuple);
         }
     }
@@ -159,40 +181,49 @@ fn get_fn_params(given_params: Vec<&str>, input_types: RVec<RString>) -> Vec<Par
 
 fn get_response<T>(
     w: &mut ForgeWorld,
+    client_name: &str,
     method_name: &str,
     params: Vec<ParamWithType>,
 ) -> Result<Box<ForgeResponse<T>>> {
     let ret = match params.len() {
-        0 => run_method_no_params(w, &method_name)?,
+        0 => run_method_no_params(w, &client_name, &method_name)?,
         1 => match params[0].clone() {
             ParamWithType::None => {
-                run_method_one_param(w, &method_name, ROption::<RString>::RNone)?
+                run_method_one_param(w, &client_name, &method_name, ROption::<RString>::RNone)?
             }
-            ParamWithType::Number(el) => run_method_one_param(w, &method_name, el)?,
-            ParamWithType::OptionalNumber(el) => run_method_one_param(w, &method_name, el)?,
-            ParamWithType::String(el) => run_method_one_param(w, &method_name, el)?,
-            ParamWithType::OptionalString(el) => run_method_one_param(w, &method_name, el)?,
+            ParamWithType::Number(el) => run_method_one_param(w, &client_name, &method_name, el)?,
+            ParamWithType::OptionalNumber(el) => {
+                run_method_one_param(w, &client_name, &method_name, el)?
+            }
+            ParamWithType::String(el) => run_method_one_param(w, &client_name, &method_name, el)?,
+            ParamWithType::OptionalString(el) => {
+                run_method_one_param(w, &client_name, &method_name, el)?
+            }
             _ => bail!("not covered 1 param cases"),
         },
         2 => match (params[0].clone(), params[1].clone()) {
             (ParamWithType::String(el1), ParamWithType::String(el2)) => {
-                run_method_two_params(w, &method_name, el1, el2)?
+                run_method_two_params(w, &client_name, &method_name, el1, el2)?
             }
             (ParamWithType::String(el1), ParamWithType::OptionalString(el2)) => {
-                run_method_two_params(w, &method_name, el1, el2)?
+                run_method_two_params(w, &client_name, &method_name, el1, el2)?
             }
             (ParamWithType::OptionalString(el1), ParamWithType::OptionalNumber(el2)) => {
-                run_method_two_params(w, &method_name, el1, el2)?
+                run_method_two_params(w, &client_name, &method_name, el1, el2)?
             }
             (ParamWithType::OptionalString(el1), ParamWithType::String(el2)) => {
-                run_method_two_params(w, &method_name, el1, el2)?
+                run_method_two_params(w, &client_name, &method_name, el1, el2)?
             }
             (ParamWithType::OptionalString(el1), ParamWithType::OptionalString(el2)) => {
-                run_method_two_params(w, &method_name, el1, el2)?
+                run_method_two_params(w, &client_name, &method_name, el1, el2)?
             }
-            (ParamWithType::String(el1), ParamWithType::None) => {
-                run_method_two_params(w, &method_name, el1, ROption::<RString>::RNone)?
-            }
+            (ParamWithType::String(el1), ParamWithType::None) => run_method_two_params(
+                w,
+                &client_name,
+                &method_name,
+                el1,
+                ROption::<RString>::RNone,
+            )?,
             _ => bail!("not covered all 2 param cases"),
         },
         3 => match (params[0].clone(), params[1].clone(), params[2].clone()) {
@@ -200,10 +231,11 @@ fn get_response<T>(
                 ParamWithType::OptionalString(el1),
                 ParamWithType::OptionalString(el2),
                 ParamWithType::OptionalDouble(el3),
-            ) => run_method_three_params(w, &method_name, el1, el2, el3)?,
+            ) => run_method_three_params(w, &client_name, &method_name, el1, el2, el3)?,
             (ParamWithType::None, ParamWithType::None, ParamWithType::None) => {
                 run_method_three_params(
                     w,
+                    &client_name,
                     &method_name,
                     ROption::<RString>::RNone,
                     ROption::<RString>::RNone,
@@ -213,6 +245,7 @@ fn get_response<T>(
             (ParamWithType::OptionalString(el1), ParamWithType::None, ParamWithType::None) => {
                 run_method_three_params(
                     w,
+                    &client_name,
                     &method_name,
                     el1,
                     ROption::<RString>::RNone,
@@ -223,7 +256,14 @@ fn get_response<T>(
                 ParamWithType::OptionalString(el1),
                 ParamWithType::OptionalString(el2),
                 ParamWithType::None,
-            ) => run_method_three_params(w, &method_name, el1, el2, ROption::<f64>::RNone)?,
+            ) => run_method_three_params(
+                w,
+                &client_name,
+                &method_name,
+                el1,
+                el2,
+                ROption::<f64>::RNone,
+            )?,
             _ => bail!("not covered all 3 param cases"),
         },
         _ => bail!("Too many arguments"),
@@ -237,6 +277,10 @@ async fn call_method_with_array(
     method_name: String,
     array: String,
 ) -> Result<()> {
+    // make sure api_client exists
+    if w.api_client.is_none() {
+        w.set_reset_client(None, None)?;
+    }
     let method_name = method_name.to_case(convert_case::Case::Snake);
     let trimmed = &array[1..array.len() - 1];
     let list = trimmed
@@ -245,15 +289,17 @@ async fn call_method_with_array(
         .collect::<RVec<_>>();
     // add mock
     set_mock_with_string_response(&method_name).await?;
+    let api_client_name = w.api_client_name.clone().context("No client name")?;
     // get fn signature
-    let info = get_fn_signature(w, &method_name)?;
+    let info = get_fn_signature(w, &api_client_name, &method_name)?;
     // there should be one input type of Vec
     assert_eq!(info.input_types.len(), 1);
     assert!(info.input_types[0].contains("Vec"));
     // put info into world
     w.last_fn_call_sign = Some(info);
-    let ffi_object = run_method_one_param(w, &method_name, list)?;
-    let tuple = serialize_returned_variable::<FFIObject>(w, &method_name, ffi_object)?;
+    let ffi_object = run_method_one_param(w, &api_client_name, &method_name, list)?;
+    let tuple =
+        serialize_returned_variable::<FFIObject>(w, &api_client_name, &method_name, ffi_object)?;
     w.last_object_response = Some(tuple);
     Ok(())
 }
@@ -264,16 +310,27 @@ async fn call_method_with_object(
     method_name: String,
     json_str: String,
 ) -> Result<()> {
+    // make sure api_client exists
+    if w.api_client.is_none() {
+        w.set_reset_client(None, None)?;
+    }
     let method_name = method_name.to_case(convert_case::Case::Snake);
     // add mock
     set_mock_with_string_response(&method_name).await?;
+    let api_client_name = w.api_client_name.clone().context("No client name")?;
     // get fn signature
-    let info = get_fn_signature(w, &method_name)?;
+    let info = get_fn_signature(w, &api_client_name, &method_name)?;
     // there should be one input type of InlineObject[0-9]* or ObjectResponse
     assert_eq!(info.input_types.len(), 1);
     assert!(info.input_types[0].contains("Object"));
-    let ffi_object = run_method_one_serialized_param(w, &method_name, RString::from(json_str))?;
-    let tuple = serialize_returned_variable::<FFIObject>(w, &method_name, ffi_object)?;
+    let ffi_object = run_method_one_serialized_param(
+        w,
+        &api_client_name,
+        &method_name,
+        RString::from(json_str),
+    )?;
+    let tuple =
+        serialize_returned_variable::<FFIObject>(w, &api_client_name, &method_name, ffi_object)?;
     w.last_object_response = Some(tuple);
     w.last_fn_call_sign = Some(info);
     Ok(())
@@ -316,7 +373,7 @@ async fn call_method_with_server_responds_headers(
 ) -> Result<()> {
     // make sure api_client exists
     if w.api_client.is_none() {
-        w.set_reset_client(None)?;
+        w.set_reset_client(None, None)?;
     }
     let method_name = method_name.to_case(convert_case::Case::Snake);
     let headers = step.docstring().context("response body not found")?.trim();
@@ -329,18 +386,24 @@ async fn call_method_with_server_responds_headers(
         .collect::<Vec<_>>();
     // add mock
     set_mock_with_header(header_object[0]).await?;
+    let api_client_name = w.api_client_name.clone().context("No client name")?;
     // fn
-    let info = get_fn_signature(w, &method_name)?;
+    let info = get_fn_signature(w, &api_client_name, &method_name)?;
     // run method
     match info.return_type.as_str() {
         "String" => {
-            let response = get_response::<RString>(w, &method_name, vec![])?;
-            let inner = returned_value_to_inner(w, &method_name, response)?;
+            let response = get_response::<RString>(w, &api_client_name, &method_name, vec![])?;
+            let inner = returned_value_to_inner(w, &api_client_name, &method_name, response)?;
             w.last_string_response = Some(*inner);
         }
         _complex => {
-            let ffi_object = get_response::<FFIObject>(w, &method_name, vec![])?;
-            let tuple = serialize_returned_variable::<FFIObject>(w, &method_name, ffi_object)?;
+            let ffi_object = get_response::<FFIObject>(w, &api_client_name, &method_name, vec![])?;
+            let tuple = serialize_returned_variable::<FFIObject>(
+                w,
+                &api_client_name,
+                &method_name,
+                ffi_object,
+            )?;
             w.last_object_response = Some(tuple);
         }
     }
@@ -355,12 +418,14 @@ async fn call_method_with_server_responds_empty(
 ) -> Result<()> {
     // make sure api_client exists
     if w.api_client.is_none() {
-        w.set_reset_client(None)?;
+        w.set_reset_client(None, None)?;
     }
     let method_name = method_name.to_case(convert_case::Case::Snake);
     set_mock_empty().await?;
-    let ffi_object = get_response::<FFIObject>(w, &method_name, vec![])?;
-    let tuple = serialize_returned_variable::<FFIObject>(w, &method_name, ffi_object)?;
+    let api_client_name = w.api_client_name.clone().context("No client name")?;
+    let ffi_object = get_response::<FFIObject>(w, &api_client_name, &method_name, vec![])?;
+    let tuple =
+        serialize_returned_variable::<FFIObject>(w, &api_client_name, &method_name, ffi_object)?;
     w.last_object_response = Some(tuple);
     Ok(())
 }

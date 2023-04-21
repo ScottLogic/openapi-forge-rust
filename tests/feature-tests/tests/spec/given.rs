@@ -20,6 +20,5 @@ async fn given_api_specification(w: &mut ForgeWorld, step: &Step) -> Result<()> 
     forge(w.library_name_modifier.context("library modifier")?).await?;
     compile_generated_api(w.library_name_modifier.context("library modifier")?).await?;
     w.set_library()?;
-    w.set_reset_client(None)?;
     Ok(())
 }

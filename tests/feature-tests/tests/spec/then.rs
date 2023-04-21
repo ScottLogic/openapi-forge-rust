@@ -8,6 +8,7 @@ use serde_json::{json, Value};
 use url::Url;
 use wiremock::http::{HeaderName, Method};
 
+use crate::ffi::check_method_exists;
 use crate::{ffi::model_get_type_information, ForgeWorld};
 
 use crate::SERVER;
@@ -228,13 +229,65 @@ async fn response_should_have_header(
 }
 
 #[then(expr = "the response should be null")]
-async fn response_should_be_null(
-    w: &mut ForgeWorld,
-) -> Result<()> {
-    if let Some(last_response) = &w.last_object_response{
+async fn response_should_be_null(w: &mut ForgeWorld) -> Result<()> {
+    if let Some(last_response) = &w.last_object_response {
         let value = serde_json::from_str::<Value>(&last_response.1)?;
         let data = value.get("data").context("no data")?;
         assert!(data.is_null());
     }
     Ok(())
+}
+
+#[then(expr = "the api file with tag {word} exists")]
+async fn api_client_with_tag_exists(w: &mut ForgeWorld, tag: String) -> Result<()> {
+    let tag = &tag[1..tag.len() - 1];
+    let some_tag = if tag.is_empty() { None } else { Some(tag) };
+    w.set_reset_client(None, some_tag)?;
+    Ok(())
+}
+
+#[then(expr = "the api file with tag {word} does not exist")]
+async fn api_client_tag_do_not_exist(w: &mut ForgeWorld, tag: String) -> Result<()> {
+    let tag = &tag[1..tag.len() - 1];
+    let some_tag = if tag.is_empty() { None } else { Some(tag) };
+    if let Err(_e) = w.set_reset_client(None, some_tag) {
+        Ok(())
+    } else {
+        bail!("The client exists");
+    }
+}
+
+#[then(expr = "the method {word} should be present in the api file with tag {word}")]
+async fn api_client_with_tag_should_have_method(
+    w: &mut ForgeWorld,
+    method_name: String,
+    tag: String,
+) -> Result<()> {
+    let tag = &tag[1..tag.len() - 1];
+    let some_tag = if tag.is_empty() { None } else { Some(tag) };
+    let method_name = &method_name[1..&method_name.len() - 1];
+    w.set_reset_client(None, some_tag)?;
+    let api_client_name = w.api_client_name.clone().context("No client name")?;
+    let method_name_snake = method_name.to_case(convert_case::Case::Snake);
+    check_method_exists(w, &api_client_name, &method_name_snake)?;
+    Ok(())
+}
+
+#[then(expr = "the method {word} should not be present in the api file with tag {word}")]
+async fn api_client_with_tag_should_not_have_method(
+    w: &mut ForgeWorld,
+    method_name: String,
+    tag: String,
+) -> Result<()> {
+    let tag = &tag[1..tag.len() - 1];
+    let some_tag = if tag.is_empty() { None } else { Some(tag) };
+    let method_name = &method_name[1..&method_name.len() - 1];
+    w.set_reset_client(None, some_tag)?;
+    let api_client_name = w.api_client_name.clone().context("No client name")?;
+    let method_name_snake = method_name.to_case(convert_case::Case::Snake);
+    if let Err(_e) = check_method_exists(w, &api_client_name, &method_name_snake) {
+        Ok(())
+    } else {
+        bail!("The method exists");
+    }
 }
