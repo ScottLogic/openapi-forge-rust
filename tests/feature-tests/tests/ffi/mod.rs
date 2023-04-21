@@ -137,6 +137,28 @@ pub fn serialize_returned_variable<T>(
     }
 }
 
+pub fn returned_value_to_inner<T>(
+    w: &mut ForgeWorld,
+    method_name: &str,
+    last_result: Box<ForgeResponse<T>>
+) -> Result<Box<T>> {
+    unsafe {
+        let c_method = format!("c_api_client_{}_to_inner", method_name);
+        let c_method_bytes = c_method.as_bytes();
+        if let Some(library) = &w.library {
+            let func: Symbol<extern "C" fn(Box<ForgeResponse<T>>) -> Box<T>> = library.get(
+                c_method_bytes
+            )?;
+            let ret = func(last_result);
+            Ok(ret)
+        } else {
+            bail!("run_method_no_params_with_return")
+        }
+    }
+}
+
+
+
 pub fn run_method_no_params<T>(
     w: &mut ForgeWorld,
     method_name: &str
@@ -260,20 +282,6 @@ pub fn _run_method_three_params<T, U, V, W>(
             }
         } else {
             bail!("run_method_three_params")
-        }
-    }
-}
-
-pub fn model_get_type_name(w: &mut ForgeWorld, struct_snake_case: &str) -> Result<RString> {
-    let c_method = format!("c_{}_type_name", struct_snake_case);
-    let c_method_bytes = c_method.as_bytes();
-    unsafe {
-        if let Some(library) = &w.library {
-            let func: Symbol<extern "C" fn() -> RString> = library.get(c_method_bytes)?;
-            let type_name = func();
-            Ok(type_name)
-        } else {
-            bail!("get_type_name")
         }
     }
 }

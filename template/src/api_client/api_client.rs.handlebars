@@ -100,6 +100,7 @@ impl ApiClient{{_tag.name}} {
             .iter()
             .filter_map(|(k, v)| Some((k.to_string().into(), v.to_str().ok()?.into())))
             .collect::<HashMap<_, _>>();
+        {{#ifNotEquals (safeTypeConvert _response.schema true) "()"}}
         let data = response
         {{#if (complexReturnType _response.schema)}}
             .json::<{{safeTypeConvert _response.schema true}}>()
@@ -107,7 +108,16 @@ impl ApiClient{{_tag.name}} {
             .text()
         {{/if}}
             {{#ifNotEquals @root.cabi "true"}}.await{{/ifNotEquals}}?;
-        Ok(ForgeResponse::new(data.into(), status_code, headers))
+        {{/ifNotEquals}}
+        Ok(ForgeResponse::new(
+            {{#ifEquals (safeTypeConvert _response.schema true) "()"}}
+            (),
+            {{/ifEquals}}
+            {{#ifNotEquals (safeTypeConvert _response.schema true) "()"}}
+            data.into(), 
+            {{/ifNotEquals}}
+            status_code, 
+            headers))
     }
     {{else}}
     #[allow(unused_variables)]
@@ -177,6 +187,13 @@ pub extern "C" fn c_api_client{{toRustParamName _tag.name}}_{{toRustParamName op
 ) -> FFISafeTuple<{{safeTypeConvert _response.schema true}}> {
     let serialized = serde_json::to_string(&o).unwrap();
     FFISafeTuple::<{{safeTypeConvert _response.schema true}}>(o, serialized.into())
+}
+
+#[no_mangle]
+pub extern "C" fn c_api_client{{toRustParamName _tag.name}}_{{toRustParamName operationId}}_to_inner (
+    o: Box<ForgeResponse<{{safeTypeConvert _response.schema true}}>>
+) -> Box<{{safeTypeConvert _response.schema true}}> {
+    Box::new(o.data)
 }
 
 #[no_mangle]

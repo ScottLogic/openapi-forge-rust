@@ -34,11 +34,6 @@ pub struct {{toClassName @key}}
 
 {{#ifEquals @root.cabi "true"}}
 #[no_mangle]
-pub extern "C" fn c{{toRustParamName @key}}_type_name() -> String {
-    "{{toClassName @key}}".into()
-}
-
-#[no_mangle]
 pub extern "C" fn c{{toRustParamName @key}}_type_information() -> Box<ObjectTypeInformation> {
     let type_name = "{{toClassName @key}}".into();
     let {{#each properties}}{{#if @last}}mut{{/if}}{{/each}} map = HashMap::new();

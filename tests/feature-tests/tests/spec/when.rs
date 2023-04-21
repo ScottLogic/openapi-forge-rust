@@ -1,20 +1,17 @@
-use abi_stable::std_types::{ RString, RVec };
-use anyhow::{ bail, Context, Ok, Result };
+use abi_stable::std_types::{RString, RVec};
+use anyhow::{bail, Context, Ok, Result};
 use convert_case::Casing;
-use cucumber::{ gherkin::Step, when };
+use cucumber::{gherkin::Step, when};
+use serde_json::Value;
 
 use crate::{
-    data::{ FFIObject, ParamWithType },
+    data::{FFIObject, FFISafeTuple, ForgeResponse, ParamWithType},
     ffi::{
-        get_fn_signature,
-        run_method_no_params,
-        run_method_one_param,
-        run_method_two_params,
-        serialize_returned_variable,
-        run_method_one_serialized_param,
+        get_fn_signature, returned_value_to_inner, run_method_no_params, run_method_one_param,
+        run_method_one_serialized_param, run_method_two_params, serialize_returned_variable,
     },
-    mock::{ set_mock_with_json_response, set_mock_with_string_response },
-    util::{ compile_generated_api, forge, hash_an_object, write_schema_to_file },
+    mock::{set_mock_with_header, set_mock_with_json_response, set_mock_with_string_response, set_mock_empty},
+    util::{compile_generated_api, forge, hash_an_object, write_schema_to_file},
     ForgeWorld,
 };
 
@@ -41,7 +38,12 @@ async fn call_method_without_params(w: &mut ForgeWorld, method_name: String) -> 
     let method_name = method_name.to_case(convert_case::Case::Snake);
     set_mock_with_string_response(&method_name).await?;
     // TODO: check fn signature for all methods
-    run_method_no_params::<RString>(w, &method_name)?;
+    let fn_signature = get_fn_signature(w, &method_name)?;
+    w.last_fn_call_sign = Some(fn_signature);
+    // TODO dispatch correct return type
+    let ret = run_method_no_params::<RString>(w, &method_name)?;
+    let inner_ret = returned_value_to_inner(w, &method_name, ret)?;
+    w.last_string_response = Some(*inner_ret);
     Ok(())
 }
 
@@ -55,7 +57,7 @@ async fn call_spied_method_without_params(w: &mut ForgeWorld, method_name: Strin
 async fn call_method_with_server_responds(
     w: &mut ForgeWorld,
     method_name: String,
-    step: &Step
+    step: &Step,
 ) -> Result<()> {
     // make sure api_client exists
     if w.api_client.is_none() {
@@ -66,12 +68,22 @@ async fn call_method_with_server_responds(
     let method_name = method_name.to_case(convert_case::Case::Snake);
     // add mock
     set_mock_with_json_response(raw_response_body).await?;
-    // run method
-    let ffi_object = run_method_no_params::<FFIObject>(w, &method_name)?;
-    let tuple = serialize_returned_variable::<FFIObject>(w, &method_name, ffi_object)?;
-    w.last_object_response = Some(tuple);
+    // fn
     let info = get_fn_signature(w, &method_name)?;
-    w.last_method_call_sign = Some(info);
+    // run method
+    match info.return_type.as_str() {
+        "String" => {
+            let response = get_response::<RString>(w, &method_name, vec![])?;
+            let inner = returned_value_to_inner(w, &method_name, response)?;
+            w.last_string_response = Some(*inner);
+        }
+        _complex => {
+            let ffi_object = get_response::<FFIObject>(w, &method_name, vec![])?;
+            let tuple = serialize_returned_variable::<FFIObject>(w, &method_name, ffi_object)?;
+            w.last_object_response = Some(tuple);
+        }
+    }
+    w.last_fn_call_sign = Some(info);
     Ok(())
 }
 
@@ -85,7 +97,7 @@ async fn when_selecting_index(w: &mut ForgeWorld, idx: u8) -> Result<()> {
 async fn call_method_with_params(
     w: &mut ForgeWorld,
     method_name: String,
-    params: String
+    params: String,
 ) -> Result<()> {
     let method_name = method_name.to_case(convert_case::Case::Snake);
     let trimmed = &params[1..params.len() - 1];
@@ -94,6 +106,7 @@ async fn call_method_with_params(
     set_mock_with_string_response(&method_name).await?;
     // get fn signature
     let info = get_fn_signature(w, &method_name)?;
+    let return_type = &info.return_type;
     // check if input params are correct length
     assert_eq!(list.len(), info.input_types.len());
     // collect params
@@ -103,45 +116,62 @@ async fn call_method_with_params(
         .filter_map(|(el, el_type)| ParamWithType::from(el, &el_type).ok())
         .collect::<Vec<_>>();
     // run method
-    let ffi_object = match params.len() {
-        1 =>
-            match params[0].clone() {
-                ParamWithType::Number(el) => run_method_one_param(w, &method_name, el)?,
-                ParamWithType::OptionalNumber(el) => run_method_one_param(w, &method_name, el)?,
-                ParamWithType::String(el) => run_method_one_param(w, &method_name, el)?,
-                ParamWithType::OptionalString(el) => run_method_one_param(w, &method_name, el)?,
+    match return_type.as_str() {
+        "String" => {
+            let response = get_response::<RString>(w, &method_name, params)?;
+            let inner = returned_value_to_inner(w, &method_name, response)?;
+            w.last_string_response = Some(*inner);
+        }
+        _complex => {
+            let ffi_object = get_response::<FFIObject>(w, &method_name, params)?;
+            let tuple = serialize_returned_variable::<FFIObject>(w, &method_name, ffi_object)?;
+            w.last_object_response = Some(tuple);
+        }
+    }
+    Ok(())
+}
+
+fn get_response<T>(
+    w: &mut ForgeWorld,
+    method_name: &str,
+    params: Vec<ParamWithType>,
+) -> Result<Box<ForgeResponse<T>>> {
+    let ret = match params.len() {
+        0 => run_method_no_params(w, &method_name)?,
+        1 => match params[0].clone() {
+            ParamWithType::Number(el) => run_method_one_param(w, &method_name, el)?,
+            ParamWithType::OptionalNumber(el) => run_method_one_param(w, &method_name, el)?,
+            ParamWithType::String(el) => run_method_one_param(w, &method_name, el)?,
+            ParamWithType::OptionalString(el) => run_method_one_param(w, &method_name, el)?,
+        },
+        2 => match (params[0].clone(), params[1].clone()) {
+            (ParamWithType::String(el1), ParamWithType::String(el2)) => {
+                run_method_two_params(w, &method_name, el1, el2)?
             }
-        2 =>
-            match (params[0].clone(), params[1].clone()) {
-                (ParamWithType::String(el1), ParamWithType::String(el2)) => {
-                    run_method_two_params(w, &method_name, el1, el2)?
-                }
-                (ParamWithType::String(el1), ParamWithType::OptionalString(el2)) => {
-                    run_method_two_params(w, &method_name, el1, el2)?
-                }
-                (ParamWithType::OptionalString(el1), ParamWithType::OptionalNumber(el2)) => {
-                    run_method_two_params(w, &method_name, el1, el2)?
-                }
-                (ParamWithType::OptionalString(el1), ParamWithType::String(el2)) => {
-                    run_method_two_params(w, &method_name, el1, el2)?
-                }
-                (ParamWithType::OptionalString(el1), ParamWithType::OptionalString(el2)) => {
-                    run_method_two_params(w, &method_name, el1, el2)?
-                }
-                _ => bail!("not covered all cases"),
+            (ParamWithType::String(el1), ParamWithType::OptionalString(el2)) => {
+                run_method_two_params(w, &method_name, el1, el2)?
             }
+            (ParamWithType::OptionalString(el1), ParamWithType::OptionalNumber(el2)) => {
+                run_method_two_params(w, &method_name, el1, el2)?
+            }
+            (ParamWithType::OptionalString(el1), ParamWithType::String(el2)) => {
+                run_method_two_params(w, &method_name, el1, el2)?
+            }
+            (ParamWithType::OptionalString(el1), ParamWithType::OptionalString(el2)) => {
+                run_method_two_params(w, &method_name, el1, el2)?
+            }
+            _ => bail!("not covered all cases"),
+        },
         _ => bail!("Too many arguments"),
     };
-    let tuple = serialize_returned_variable::<FFIObject>(w, &method_name, ffi_object)?;
-    w.last_object_response = Some(tuple);
-    Ok(())
+    Ok(ret)
 }
 
 #[when(expr = "calling the method {word} with array {word}")]
 async fn call_method_with_array(
     w: &mut ForgeWorld,
     method_name: String,
-    array: String
+    array: String,
 ) -> Result<()> {
     let method_name = method_name.to_case(convert_case::Case::Snake);
     let trimmed = &array[1..array.len() - 1];
@@ -157,7 +187,7 @@ async fn call_method_with_array(
     assert_eq!(info.input_types.len(), 1);
     assert!(info.input_types[0].contains("Vec"));
     // put info into world
-    w.last_method_call_sign = Some(info);
+    w.last_fn_call_sign = Some(info);
     let ffi_object = run_method_one_param(w, &method_name, list)?;
     let tuple = serialize_returned_variable::<FFIObject>(w, &method_name, ffi_object)?;
     w.last_object_response = Some(tuple);
@@ -168,7 +198,7 @@ async fn call_method_with_array(
 async fn call_method_with_object(
     w: &mut ForgeWorld,
     method_name: String,
-    json_str: String
+    json_str: String,
 ) -> Result<()> {
     let method_name = method_name.to_case(convert_case::Case::Snake);
     // add mock
@@ -179,6 +209,92 @@ async fn call_method_with_object(
     assert_eq!(info.input_types.len(), 1);
     assert!(info.input_types[0].contains("InlineObject"));
     let ffi_object = run_method_one_serialized_param(w, &method_name, RString::from(json_str))?;
+    let tuple = serialize_returned_variable::<FFIObject>(w, &method_name, ffi_object)?;
+    w.last_object_response = Some(tuple);
+    Ok(())
+}
+
+#[when(expr = "extracting the object at index {int}")]
+async fn choose_index_of_array(w: &mut ForgeWorld, idx: usize) -> Result<()> {
+    // alter fn return sign
+    if let Some(fn_sign) = &mut w.last_fn_call_sign {
+        assert!(fn_sign.return_type.contains("Vec"));
+        // Remove Vec< and >
+        let new_return = RString::from(fn_sign.return_type.slice(4..fn_sign.return_type.len() - 1));
+        fn_sign.return_type = new_return;
+    } else {
+        bail!("no fn sign");
+    }
+    // alter object
+    let object = w.last_object_response.take();
+    if let Some(last) = object {
+        let serialized = &last.1;
+        let mut value = serde_json::from_str::<Value>(serialized.as_str())?;
+        let data = value.get_mut("data").context("data container")?;
+        let array = data.as_array().context("cannot take array")?;
+        let extracted = array.get(idx).context("index access")?.clone();
+        *data = extracted;
+        let extracted_serialized = RString::from(value.to_string());
+        w.last_object_response = Some(FFISafeTuple(last.0, extracted_serialized));
+    } else {
+        bail!("np last response");
+    }
+
+    Ok(())
+}
+
+#[when(expr = "calling the method {word} and the server responds with headers")]
+async fn call_method_with_server_responds_headers(
+    w: &mut ForgeWorld,
+    method_name: String,
+    step: &Step,
+) -> Result<()> {
+    // make sure api_client exists
+    if w.api_client.is_none() {
+        w.set_reset_client(None)?;
+    }
+    let method_name = method_name.to_case(convert_case::Case::Snake);
+    let headers = step.docstring().context("response body not found")?.trim();
+    let header_value = serde_json::from_str::<Value>(&headers)?;
+    let header_object = header_value
+        .as_object()
+        .context("object")?
+        .iter()
+        .filter_map(|(k, v)| Some((&k[..], v.as_str()?)))
+        .collect::<Vec<_>>();
+    // add mock
+    set_mock_with_header(header_object[0]).await?;
+    // fn
+    let info = get_fn_signature(w, &method_name)?;
+    // run method
+    match info.return_type.as_str() {
+        "String" => {
+            let response = get_response::<RString>(w, &method_name, vec![])?;
+            let inner = returned_value_to_inner(w, &method_name, response)?;
+            w.last_string_response = Some(*inner);
+        }
+        _complex => {
+            let ffi_object = get_response::<FFIObject>(w, &method_name, vec![])?;
+            let tuple = serialize_returned_variable::<FFIObject>(w, &method_name, ffi_object)?;
+            w.last_object_response = Some(tuple);
+        }
+    }
+    w.last_fn_call_sign = Some(info);
+    Ok(())
+}
+
+#[when(expr = "calling the method {word} and the server provides an empty response")]
+async fn call_method_with_server_responds_empty(
+    w: &mut ForgeWorld,
+    method_name: String,
+) -> Result<()> {
+    // make sure api_client exists
+    if w.api_client.is_none() {
+        w.set_reset_client(None)?;
+    }
+    let method_name = method_name.to_case(convert_case::Case::Snake);
+    set_mock_empty().await?;
+    let ffi_object = get_response::<FFIObject>(w, &method_name, vec![])?;
     let tuple = serialize_returned_variable::<FFIObject>(w, &method_name, ffi_object)?;
     w.last_object_response = Some(tuple);
     Ok(())

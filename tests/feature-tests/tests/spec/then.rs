@@ -1,14 +1,14 @@
-use std::{ collections::HashSet, path::Path, str::FromStr };
+use std::{collections::HashSet, path::Path, str::FromStr};
 
 use abi_stable::std_types::RString;
-use anyhow::{ bail, Context, Result };
+use anyhow::{bail, Context, Result};
 use convert_case::Casing;
 use cucumber::then;
-use serde_json::{ json, Value };
+use serde_json::{json, Value};
 use url::Url;
-use wiremock::http::{ HeaderName, Method };
+use wiremock::http::{HeaderName, Method};
 
-use crate::{ ffi::{ model_get_type_information }, ForgeWorld };
+use crate::{ffi::model_get_type_information, ForgeWorld};
 
 use crate::SERVER;
 
@@ -70,7 +70,7 @@ async fn request_should_have_header(_w: &mut ForgeWorld, value: String) -> Resul
 
 #[then(expr = "the response should be of type {word}")]
 async fn response_type_should_be(w: &mut ForgeWorld, expected: String) -> Result<()> {
-    if let Some(last_call) = &w.last_method_call_sign {
+    if let Some(last_call) = &w.last_fn_call_sign {
         assert_eq!(&last_call.return_type, &expected);
     } else {
         bail!("no last call");
@@ -82,7 +82,7 @@ async fn response_type_should_be(w: &mut ForgeWorld, expected: String) -> Result
 async fn response_should_have_property(
     w: &mut ForgeWorld,
     property: String,
-    expected_value: String
+    expected_value: String,
 ) -> Result<()> {
     if let Some(last_response) = &w.last_object_response {
         let serialized = &last_response.1;
@@ -120,13 +120,14 @@ async fn object_should_have_type(
     object: String,
     modifier: String,
     expected_name: String,
-    expected_type: String
+    expected_type: String,
 ) -> Result<()> {
     let snake_name = object.to_case(convert_case::Case::Snake);
     let info = model_get_type_information(w, &snake_name)?;
     let expected_name_snake_case = RString::from(expected_name.to_case(convert_case::Case::Snake));
     assert!(info.fields.contains_key(&expected_name_snake_case));
-    let actual_type = info.fields
+    let actual_type = info
+        .fields
         .get(&expected_name_snake_case)
         .context("cannot get type from the map")?;
     match &expected_type[..] {
@@ -179,6 +180,61 @@ async fn request_header_should_have_cookie(_w: &mut ForgeWorld, cookie_str: Stri
                 bail!("no cookie");
             }
         }
+    }
+    Ok(())
+}
+
+#[then(regex = r"the response should be equal to (.+)")]
+async fn response_should_be_equal_to(w: &mut ForgeWorld, expected: String) -> Result<()> {
+    if let Some(actual) = &w.last_string_response {
+        assert_eq!(actual, &expected);
+    } else {
+        bail!("no response string");
+    }
+    Ok(())
+}
+
+#[then(expr = "the response should be an array")]
+async fn response_should_be_an_array(w: &mut ForgeWorld) -> Result<()> {
+    if let Some(last) = &w.last_object_response {
+        let serialized = &last.1;
+        let value = serde_json::from_str::<Value>(serialized.as_str())?;
+        let data = value.get("data").context("data contrainer")?;
+        assert!(data.is_array());
+    } else {
+        bail!("np last response");
+    }
+    Ok(())
+}
+
+#[then(expr = "the response should have a header {word} with value {word}")]
+async fn response_should_have_header(
+    w: &mut ForgeWorld,
+    name: String,
+    value: String,
+) -> Result<()> {
+    if let Some(last_response) = &w.last_object_response {
+        let json_value = serde_json::from_str::<Value>(&last_response.1)?;
+        let headers = json_value.get("headers").context("no headers")?;
+        let header_object = headers.as_object().context("object")?;
+        let actual = header_object
+            .get(&name)
+            .context("no header name")?
+            .as_str()
+            .context("cannot str")?;
+        assert_eq!(actual, &value);
+    }
+    Ok(())
+}
+
+#[then(expr = "the response should be null")]
+async fn response_should_be_null(
+    w: &mut ForgeWorld,
+) -> Result<()> {
+    if let Some(last_response) = &w.last_object_response{
+        let value = serde_json::from_str::<Value>(&last_response.1)?;
+        let data = value.get("data").context("no data")?;
+        assert!(data.is_null());
     }
     Ok(())
 }

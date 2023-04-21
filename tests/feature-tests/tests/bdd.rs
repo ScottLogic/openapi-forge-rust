@@ -4,6 +4,7 @@ mod mock;
 mod spec;
 mod util;
 
+use abi_stable::std_types::RString;
 use anyhow::{ Context, Ok, Result };
 
 use cucumber::World;
@@ -28,8 +29,9 @@ pub struct ForgeWorld {
     config: Option<Box<Configuration>>,
     http_client: Option<Box<Client>>,
     api_client: Option<Box<ApiClient>>,
+    last_string_response: Option<RString>,
     last_object_response: Option<FFISafeTuple<FFIObject>>,
-    last_method_call_sign: Option<FnSignatureInformation>
+    last_fn_call_sign: Option<FnSignatureInformation>,
 }
 
 impl ForgeWorld {
@@ -40,8 +42,9 @@ impl ForgeWorld {
             config: None,
             http_client: None,
             api_client: None,
+            last_string_response: None,
             last_object_response: None,
-            last_method_call_sign: None,
+            last_fn_call_sign: None,
         }
     }
 
