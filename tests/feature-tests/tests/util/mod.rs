@@ -14,7 +14,7 @@ pub(crate) mod platform {
 }
 
 #[cfg(windows)]
-mod platform {
+pub(crate) mod platform {
     pub(crate) const PREFIX: &str = "";
     pub(crate) const EXTENSION: &str = "dll";
 }
