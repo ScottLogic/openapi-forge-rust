@@ -7,6 +7,18 @@ use tokio::process::Command;
 
 const GENERATED_API_PARENT: &str = ".generated-apis";
 
+#[cfg(unix)]
+pub(crate) mod platform {
+    pub(crate) const PREFIX: &str = "lib";
+    pub(crate) const EXTENSION: &str = "so";
+}
+
+#[cfg(windows)]
+mod platform {
+    pub(crate) const PREFIX: &str = "";
+    pub(crate) const EXTENSION: &str = "dll";
+}
+
 macro_rules! get_schema_path {
     ($expression:expr) => {
         format!("{}/schema_{}.json", GENERATED_API_PARENT, $expression)
@@ -21,7 +33,12 @@ macro_rules! get_generated_api_path {
 
 macro_rules! get_generated_shared_object_path {
     ($expression:expr) => {
-        format!("target/debug/libopenapi_forge_project_{}.so", $expression)
+        format!(
+            "target/debug/{}openapi_forge_project_{}.{}",
+            crate::util::platform::PREFIX,
+            $expression,
+            crate::util::platform::EXTENSION
+        )
     };
 }
 
