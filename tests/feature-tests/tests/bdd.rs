@@ -17,6 +17,7 @@ use libloading::Library;
 use mock::SERVER;
 
 use crate::mock::PORT;
+use crate::util::FEATURES;
 
 #[derive(Debug, World)]
 #[world(init = Self::new)]
@@ -86,9 +87,10 @@ impl ForgeWorld {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    util::create_project_parent_dir().await?;
+    util::create_project_folders().await?;
+    util::copy_feature_files().await?;
     mock::init_mock_server(PORT).await?;
-    ForgeWorld::cucumber().run("tests/features").await;
+    ForgeWorld::cucumber().run(FEATURES).await;
     util::clean_up_all().await?;
     Ok(())
 }

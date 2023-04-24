@@ -1,9 +1,12 @@
 use anyhow::{Ok, Result};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
+use std::path::Path;
 use tokio::fs::{DirBuilder, File, OpenOptions};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::Command;
+
+pub(crate) const FEATURES: &str = "tests/features";
 
 const GENERATED_API_PARENT: &str = ".generated-apis";
 
@@ -52,6 +55,7 @@ pub async fn write_schema_to_file(contents: &str, file_name_modifier: u64) -> Re
 
 pub async fn clean_up_all() -> Result<()> {
     let _ret = tokio::fs::remove_dir_all(GENERATED_API_PARENT).await;
+    let _ret = tokio::fs::remove_dir_all(FEATURES).await;
     Ok(())
 }
 
@@ -70,6 +74,14 @@ pub async fn forge(modifier: u64) -> Result<()> {
         .spawn()?;
     let _status = forge_process.wait().await?;
     // println!("forge command exited with: {}", _status);
+    Ok(())
+}
+
+pub async fn copy_feature_files() -> Result<()> {
+    let mut entries = tokio::fs::read_dir("../../../openapi-forge/features/").await?;
+    while let Some(entry) = entries.next_entry().await? {
+        tokio::fs::copy(entry.path(), Path::new(FEATURES).join(entry.file_name())).await?;
+    }
     Ok(())
 }
 
@@ -125,10 +137,11 @@ pub async fn change_project_name(modifier: u64) -> Result<()> {
     Ok(())
 }
 
-pub async fn create_project_parent_dir() -> Result<()> {
+pub async fn create_project_folders() -> Result<()> {
     DirBuilder::new()
         .recursive(true)
         .create(GENERATED_API_PARENT)
         .await?;
+    DirBuilder::new().recursive(true).create(FEATURES).await?;
     Ok(())
 }
