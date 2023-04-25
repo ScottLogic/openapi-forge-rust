@@ -9,7 +9,9 @@ const isRequired = (typeDef) => {
 };
 
 const pushToQueryParam = (name, value) =>
-  `query_params.push(("${name}".to_string().into(), ${toRustParamName(value)}.to_string().into()));`;
+  `query_params.push(("${name}".to_string().into(), ${toRustParamName(
+    value
+  )}.to_string().into()));`;
 
 const serialiseArrayParam = (param, is_required = false) => {
   const safeParamName = toParamName(param.name);
@@ -28,7 +30,9 @@ const serialiseObjectParam = (param, is_required = false, is_cabi = false) => {
       res =
         `if let ` +
         getSome(is_cabi) +
-        `(${toRustParamName(propName)}) = &${safeParamName}.${toRustParamName(propName)} { ` +
+        `(${toRustParamName(propName)}) = &${safeParamName}.${toRustParamName(
+          propName
+        )} { ` +
         pushToQueryParam(propName, propName) +
         ` }`;
     } else {
@@ -39,8 +43,7 @@ const serialiseObjectParam = (param, is_required = false, is_cabi = false) => {
       serialisedObject +=
         `if let ` +
         getSome(is_cabi) +
-        `(${safeParamName}) = &${safeParamName} { ${res}  }`
-        ;
+        `(${safeParamName}) = &${safeParamName} { ${res}  }`;
     } else {
       serialisedObject += res;
     }
@@ -56,7 +59,9 @@ const serialisePrimitive = (param, is_required = false, is_cabi = false) => {
     return (
       `if let ` +
       getSome(is_cabi) +
-      `(${toRustParamName(safeParamName)}) = ${toRustParamName(safeParamName)} { ${inner}  }`
+      `(${toRustParamName(safeParamName)}) = ${toRustParamName(
+        safeParamName
+      )} { ${inner}  }`
     );
   } else {
     return inner;

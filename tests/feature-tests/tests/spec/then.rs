@@ -1,15 +1,15 @@
-use std::{collections::HashSet, path::Path, str::FromStr};
+use std::{ collections::HashSet, path::Path, str::FromStr };
 
 use abi_stable::std_types::RString;
-use anyhow::{bail, Context, Result};
+use anyhow::{ bail, Context, Result };
 use convert_case::Casing;
 use cucumber::then;
-use serde_json::{json, Value};
+use serde_json::{ json, Value };
 use url::Url;
-use wiremock::http::{HeaderName, Method};
+use wiremock::http::{ HeaderName, Method };
 
 use crate::ffi::call::check_method_exists;
-use crate::{ffi::call::model_get_type_information, ForgeWorld};
+use crate::{ ffi::call::model_get_type_information, ForgeWorld };
 
 use crate::SERVER;
 
@@ -83,7 +83,7 @@ async fn response_type_should_be(w: &mut ForgeWorld, expected: String) -> Result
 async fn response_should_have_property(
     w: &mut ForgeWorld,
     property: String,
-    expected_value: String,
+    expected_value: String
 ) -> Result<()> {
     if let Some(last_response) = &w.last_object_response {
         let serialized = &last_response.1;
@@ -121,14 +121,13 @@ async fn object_should_have_type(
     object: String,
     modifier: String,
     expected_name: String,
-    expected_type: String,
+    expected_type: String
 ) -> Result<()> {
     let snake_name = object.to_case(convert_case::Case::Snake);
     let info = model_get_type_information(w, &snake_name)?;
     let expected_name_snake_case = RString::from(expected_name.to_case(convert_case::Case::Snake));
     assert!(info.fields.contains_key(&expected_name_snake_case));
-    let actual_type = info
-        .fields
+    let actual_type = info.fields
         .get(&expected_name_snake_case)
         .context("cannot get type from the map")?;
     match &expected_type[..] {
@@ -212,7 +211,7 @@ async fn response_should_be_an_array(w: &mut ForgeWorld) -> Result<()> {
 async fn response_should_have_header(
     w: &mut ForgeWorld,
     name: String,
-    value: String,
+    value: String
 ) -> Result<()> {
     if let Some(last_response) = &w.last_object_response {
         let json_value = serde_json::from_str::<Value>(&last_response.1)?;
@@ -261,7 +260,7 @@ async fn api_client_tag_do_not_exist(w: &mut ForgeWorld, tag: String) -> Result<
 async fn api_client_with_tag_should_have_method(
     w: &mut ForgeWorld,
     method_name: String,
-    tag: String,
+    tag: String
 ) -> Result<()> {
     let tag = &tag[1..tag.len() - 1];
     let some_tag = if tag.is_empty() { None } else { Some(tag) };
@@ -277,7 +276,7 @@ async fn api_client_with_tag_should_have_method(
 async fn api_client_with_tag_should_not_have_method(
     w: &mut ForgeWorld,
     method_name: String,
-    tag: String,
+    tag: String
 ) -> Result<()> {
     let tag = &tag[1..tag.len() - 1];
     let some_tag = if tag.is_empty() { None } else { Some(tag) };

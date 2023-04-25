@@ -5,13 +5,17 @@ mod spec;
 mod util;
 
 use abi_stable::std_types::RString;
-use anyhow::{Context, Ok, Result};
+use anyhow::{ Context, Ok, Result };
 
 use convert_case::Casing;
 use cucumber::World;
 use data::*;
 use ffi::call::{
-    drop_api_client_if_exists, get_api_client, get_config, get_http_client, run_config_idx_change,
+    drop_api_client_if_exists,
+    get_api_client,
+    get_config,
+    get_http_client,
+    run_config_idx_change,
 };
 use libloading::Library;
 use mock::SERVER;
@@ -50,7 +54,7 @@ impl ForgeWorld {
 
     fn set_library(&mut self) -> Result<()> {
         let lib = ffi::call::get_generated_library(
-            self.library_name_modifier.context("library modifier")?,
+            self.library_name_modifier.context("library modifier")?
         )?;
         self.library = Some(lib);
         Ok(())
@@ -71,10 +75,9 @@ impl ForgeWorld {
         let http_client = get_http_client(self)?;
         self.http_client = Some(http_client);
         if let Some(tag) = tag {
-            self.api_client_name = Some(format!(
-                "api_client_{}",
-                tag.to_case(convert_case::Case::Snake)
-            ));
+            self.api_client_name = Some(
+                format!("api_client_{}", tag.to_case(convert_case::Case::Snake))
+            );
         } else {
             self.api_client_name = Some("api_client".to_owned());
         }

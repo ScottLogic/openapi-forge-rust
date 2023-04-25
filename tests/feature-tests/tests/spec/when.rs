@@ -1,23 +1,28 @@
-use abi_stable::std_types::{RString, RVec};
-use anyhow::{bail, Context, Ok, Result};
+use abi_stable::std_types::{ RString, RVec };
+use anyhow::{ bail, Context, Ok, Result };
 use convert_case::Casing;
-use cucumber::{gherkin::Step, when};
+use cucumber::{ gherkin::Step, when };
 use serde_json::Value;
 
 use crate::{
-    data::{FFIObject, FFISafeTuple},
+    data::{ FFIObject, FFISafeTuple },
     ffi::{
         call::{
-            get_fn_signature, returned_value_to_inner, run_method_one_param,
-            run_method_one_serialized_param, serialize_returned_variable,
+            get_fn_signature,
+            returned_value_to_inner,
+            run_method_one_param,
+            run_method_one_serialized_param,
+            serialize_returned_variable,
         },
-        dispatch::{get_fn_params, get_response},
+        dispatch::{ get_fn_params, get_response },
     },
     mock::{
-        set_mock_empty, set_mock_with_header, set_mock_with_json_response,
+        set_mock_empty,
+        set_mock_with_header,
+        set_mock_with_json_response,
         set_mock_with_string_response,
     },
-    util::{compile_generated_api, forge, hash_an_object, write_schema_to_file},
+    util::{ compile_generated_api, forge, hash_an_object, write_schema_to_file },
     ForgeWorld,
 };
 
@@ -62,7 +67,7 @@ async fn call_method_without_params(w: &mut ForgeWorld, method_name: String) -> 
                 w,
                 &api_client_name,
                 &method_name,
-                ffi_object,
+                ffi_object
             )?;
             w.last_object_response = Some(tuple);
         }
@@ -82,7 +87,7 @@ async fn call_spied_method_without_params(w: &mut ForgeWorld, method_name: Strin
 async fn call_method_with_server_responds(
     w: &mut ForgeWorld,
     method_name: String,
-    step: &Step,
+    step: &Step
 ) -> Result<()> {
     // make sure api_client exists
     if w.api_client.is_none() {
@@ -109,7 +114,7 @@ async fn call_method_with_server_responds(
                 w,
                 &api_client_name,
                 &method_name,
-                ffi_object,
+                ffi_object
             )?;
             w.last_object_response = Some(tuple);
         }
@@ -129,7 +134,7 @@ async fn when_selecting_index(w: &mut ForgeWorld, idx: u8) -> Result<()> {
 async fn call_method_with_params(
     w: &mut ForgeWorld,
     method_name: String,
-    params: String,
+    params: String
 ) -> Result<()> {
     // make sure api_client exists
     if w.api_client.is_none() {
@@ -159,7 +164,7 @@ async fn call_method_with_params(
                 w,
                 &api_client_name,
                 &method_name,
-                ffi_object,
+                ffi_object
             )?;
             w.last_object_response = Some(tuple);
         }
@@ -172,7 +177,7 @@ async fn call_method_with_params(
 async fn call_method_with_array(
     w: &mut ForgeWorld,
     method_name: String,
-    array: String,
+    array: String
 ) -> Result<()> {
     // make sure api_client exists
     if w.api_client.is_none() {
@@ -195,8 +200,12 @@ async fn call_method_with_array(
     // put info into world
     w.last_fn_call_sign = Some(info);
     let ffi_object = run_method_one_param(w, &api_client_name, &method_name, list)?;
-    let tuple =
-        serialize_returned_variable::<FFIObject>(w, &api_client_name, &method_name, ffi_object)?;
+    let tuple = serialize_returned_variable::<FFIObject>(
+        w,
+        &api_client_name,
+        &method_name,
+        ffi_object
+    )?;
     w.last_object_response = Some(tuple);
     w.api_client_name = Some(api_client_name);
     Ok(())
@@ -206,7 +215,7 @@ async fn call_method_with_array(
 async fn call_method_with_object(
     w: &mut ForgeWorld,
     method_name: String,
-    json_str: String,
+    json_str: String
 ) -> Result<()> {
     // make sure api_client exists
     if w.api_client.is_none() {
@@ -225,10 +234,14 @@ async fn call_method_with_object(
         w,
         &api_client_name,
         &method_name,
-        RString::from(json_str),
+        RString::from(json_str)
     )?;
-    let tuple =
-        serialize_returned_variable::<FFIObject>(w, &api_client_name, &method_name, ffi_object)?;
+    let tuple = serialize_returned_variable::<FFIObject>(
+        w,
+        &api_client_name,
+        &method_name,
+        ffi_object
+    )?;
     w.last_object_response = Some(tuple);
     w.last_fn_call_sign = Some(info);
     w.api_client_name = Some(api_client_name);
@@ -268,7 +281,7 @@ async fn choose_index_of_array(w: &mut ForgeWorld, idx: usize) -> Result<()> {
 async fn call_method_with_server_responds_headers(
     w: &mut ForgeWorld,
     method_name: String,
-    step: &Step,
+    step: &Step
 ) -> Result<()> {
     // make sure api_client exists
     if w.api_client.is_none() {
@@ -301,7 +314,7 @@ async fn call_method_with_server_responds_headers(
                 w,
                 &api_client_name,
                 &method_name,
-                ffi_object,
+                ffi_object
             )?;
             w.last_object_response = Some(tuple);
         }
@@ -314,7 +327,7 @@ async fn call_method_with_server_responds_headers(
 #[when(expr = "calling the method {word} and the server provides an empty response")]
 async fn call_method_with_server_responds_empty(
     w: &mut ForgeWorld,
-    method_name: String,
+    method_name: String
 ) -> Result<()> {
     // make sure api_client exists
     if w.api_client.is_none() {
@@ -324,8 +337,12 @@ async fn call_method_with_server_responds_empty(
     set_mock_empty().await?;
     let api_client_name = w.api_client_name.take().context("No client name")?;
     let ffi_object = get_response::<FFIObject>(w, &api_client_name, &method_name, vec![])?;
-    let tuple =
-        serialize_returned_variable::<FFIObject>(w, &api_client_name, &method_name, ffi_object)?;
+    let tuple = serialize_returned_variable::<FFIObject>(
+        w,
+        &api_client_name,
+        &method_name,
+        ffi_object
+    )?;
     w.last_object_response = Some(tuple);
     w.api_client_name = Some(api_client_name);
     Ok(())

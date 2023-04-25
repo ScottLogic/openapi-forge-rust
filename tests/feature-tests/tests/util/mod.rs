@@ -1,9 +1,9 @@
-use anyhow::{Ok, Result};
+use anyhow::{ Ok, Result };
 use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
+use std::hash::{ Hash, Hasher };
 use std::path::Path;
-use tokio::fs::{DirBuilder, File, OpenOptions};
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use tokio::fs::{ DirBuilder, File, OpenOptions };
+use tokio::io::{ AsyncBufReadExt, AsyncWriteExt, BufReader };
 use tokio::process::Command;
 
 pub(crate) const FEATURES: &str = "tests/features";
@@ -100,10 +100,7 @@ pub async fn compile_generated_api(modifier: u64) -> Result<()> {
     Ok(())
 }
 
-pub fn hash_an_object<T>(obj: T) -> u64
-where
-    T: Hash,
-{
+pub fn hash_an_object<T>(obj: T) -> u64 where T: Hash {
     let mut hasher = DefaultHasher::new();
     obj.hash(&mut hasher);
     hasher.finish()
@@ -115,8 +112,7 @@ where
 pub async fn change_project_name(modifier: u64) -> Result<()> {
     let file = OpenOptions::new()
         .read(true)
-        .open(get_generated_api_path!(modifier) + "/Cargo.toml")
-        .await?;
+        .open(get_generated_api_path!(modifier) + "/Cargo.toml").await?;
     let mut line_reader = BufReader::new(file).lines();
     let mut contents = vec![];
     while let Some(line) = line_reader.next_line().await? {
@@ -127,8 +123,7 @@ pub async fn change_project_name(modifier: u64) -> Result<()> {
         .read(true)
         .write(true)
         .truncate(true)
-        .open(get_generated_api_path!(modifier) + "/Cargo.toml")
-        .await?;
+        .open(get_generated_api_path!(modifier) + "/Cargo.toml").await?;
     contents[1] = format!("name = \"openapi_forge_project_{}\"", modifier);
     // truncate
     file.set_len(0).await?;
@@ -138,10 +133,7 @@ pub async fn change_project_name(modifier: u64) -> Result<()> {
 }
 
 pub async fn create_project_folders() -> Result<()> {
-    DirBuilder::new()
-        .recursive(true)
-        .create(GENERATED_API_PARENT)
-        .await?;
+    DirBuilder::new().recursive(true).create(GENERATED_API_PARENT).await?;
     DirBuilder::new().recursive(true).create(FEATURES).await?;
     Ok(())
 }
