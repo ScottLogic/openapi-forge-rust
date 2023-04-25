@@ -6,22 +6,8 @@ use serde_json::Value;
 
 use crate::{
     data::{ FFIObject, FFISafeTuple },
-    ffi::{
-        call::{
-            get_fn_signature,
-            returned_value_to_inner,
-            run_method_one_param,
-            run_method_one_serialized_param,
-            serialize_returned_variable,
-        },
-        dispatch::{ get_fn_params, get_response },
-    },
-    mock::{
-        set_mock_empty,
-        set_mock_with_header,
-        set_mock_with_json_response,
-        set_mock_with_string_response,
-    },
+    ffi::{ call::FFICaller, dispatch::FFIDispatcher },
+    mock::ForgeMockServer,
     util::{ compile_generated_api, forge, hash_an_object, write_schema_to_file },
     ForgeWorld,
 };
@@ -51,19 +37,34 @@ async fn call_method_without_params(w: &mut ForgeWorld, method_name: String) -> 
         w.set_reset_client(None, None)?;
     }
     let method_name = method_name.to_case(convert_case::Case::Snake);
-    set_mock_with_string_response(&method_name).await?;
+    ForgeMockServer::set_mock_with_string_response(&method_name).await?;
     let api_client_name = w.api_client_name.take().context("No client name")?;
-    let fn_signature = get_fn_signature(w, &api_client_name, &method_name)?;
-    let params = get_fn_params(&vec![], &fn_signature.input_types);
+    let fn_signature = FFICaller::get_fn_signature(w, &api_client_name, &method_name)?;
+    let params = FFIDispatcher::get_fn_params(&vec![], &fn_signature.input_types);
     match fn_signature.return_type.as_str() {
         "String" => {
-            let response = get_response::<RString>(w, &api_client_name, &method_name, params)?;
-            let inner = returned_value_to_inner(w, &api_client_name, &method_name, response)?;
+            let response = FFIDispatcher::get_response::<RString>(
+                w,
+                &api_client_name,
+                &method_name,
+                params
+            )?;
+            let inner = FFICaller::returned_value_to_inner(
+                w,
+                &api_client_name,
+                &method_name,
+                response
+            )?;
             w.last_string_response = Some(*inner);
         }
         _complex => {
-            let ffi_object = get_response::<FFIObject>(w, &api_client_name, &method_name, params)?;
-            let tuple = serialize_returned_variable::<FFIObject>(
+            let ffi_object = FFIDispatcher::get_response::<FFIObject>(
+                w,
+                &api_client_name,
+                &method_name,
+                params
+            )?;
+            let tuple = FFICaller::serialize_returned_variable::<FFIObject>(
                 w,
                 &api_client_name,
                 &method_name,
@@ -97,20 +98,35 @@ async fn call_method_with_server_responds(
     let raw_response_body = step.docstring().context("response body not found")?.trim();
     let method_name = method_name.to_case(convert_case::Case::Snake);
     // add mock
-    set_mock_with_json_response(raw_response_body).await?;
+    ForgeMockServer::set_mock_with_json_response(raw_response_body).await?;
     let api_client_name = w.api_client_name.take().context("No client name")?;
     // fn
-    let info = get_fn_signature(w, &api_client_name, &method_name)?;
+    let info = FFICaller::get_fn_signature(w, &api_client_name, &method_name)?;
     // run method
     match info.return_type.as_str() {
         "String" => {
-            let response = get_response::<RString>(w, &api_client_name, &method_name, vec![])?;
-            let inner = returned_value_to_inner(w, &api_client_name, &method_name, response)?;
+            let response = FFIDispatcher::get_response::<RString>(
+                w,
+                &api_client_name,
+                &method_name,
+                vec![]
+            )?;
+            let inner = FFICaller::returned_value_to_inner(
+                w,
+                &api_client_name,
+                &method_name,
+                response
+            )?;
             w.last_string_response = Some(*inner);
         }
         _complex => {
-            let ffi_object = get_response::<FFIObject>(w, &api_client_name, &method_name, vec![])?;
-            let tuple = serialize_returned_variable::<FFIObject>(
+            let ffi_object = FFIDispatcher::get_response::<FFIObject>(
+                w,
+                &api_client_name,
+                &method_name,
+                vec![]
+            )?;
+            let tuple = FFICaller::serialize_returned_variable::<FFIObject>(
                 w,
                 &api_client_name,
                 &method_name,
@@ -145,22 +161,37 @@ async fn call_method_with_params(
     let list = trimmed.split(',').collect::<Vec<_>>();
     let api_client_name = w.api_client_name.take().context("No client name")?;
     // add mock
-    set_mock_with_string_response(&method_name).await?;
+    ForgeMockServer::set_mock_with_string_response(&method_name).await?;
     // get fn signature
-    let info = get_fn_signature(w, &api_client_name, &method_name)?;
+    let info = FFICaller::get_fn_signature(w, &api_client_name, &method_name)?;
     let return_type = &info.return_type;
     // collect params
-    let params = get_fn_params(&list, &info.input_types);
+    let params = FFIDispatcher::get_fn_params(&list, &info.input_types);
     // run method
     match return_type.as_str() {
         "String" => {
-            let response = get_response::<RString>(w, &api_client_name, &method_name, params)?;
-            let inner = returned_value_to_inner(w, &api_client_name, &method_name, response)?;
+            let response = FFIDispatcher::get_response::<RString>(
+                w,
+                &api_client_name,
+                &method_name,
+                params
+            )?;
+            let inner = FFICaller::returned_value_to_inner(
+                w,
+                &api_client_name,
+                &method_name,
+                response
+            )?;
             w.last_string_response = Some(*inner);
         }
         _complex => {
-            let ffi_object = get_response::<FFIObject>(w, &api_client_name, &method_name, params)?;
-            let tuple = serialize_returned_variable::<FFIObject>(
+            let ffi_object = FFIDispatcher::get_response::<FFIObject>(
+                w,
+                &api_client_name,
+                &method_name,
+                params
+            )?;
+            let tuple = FFICaller::serialize_returned_variable::<FFIObject>(
                 w,
                 &api_client_name,
                 &method_name,
@@ -190,17 +221,17 @@ async fn call_method_with_array(
         .map(|el| RString::from(el))
         .collect::<RVec<_>>();
     // add mock
-    set_mock_with_string_response(&method_name).await?;
+    ForgeMockServer::set_mock_with_string_response(&method_name).await?;
     let api_client_name = w.api_client_name.take().context("No client name")?;
     // get fn signature
-    let info = get_fn_signature(w, &api_client_name, &method_name)?;
+    let info = FFICaller::get_fn_signature(w, &api_client_name, &method_name)?;
     // there should be one input type of Vec
     assert_eq!(info.input_types.len(), 1);
     assert!(info.input_types[0].contains("Vec"));
     // put info into world
     w.last_fn_call_sign = Some(info);
-    let ffi_object = run_method_one_param(w, &api_client_name, &method_name, list)?;
-    let tuple = serialize_returned_variable::<FFIObject>(
+    let ffi_object = FFICaller::run_method_one_param(w, &api_client_name, &method_name, list)?;
+    let tuple = FFICaller::serialize_returned_variable::<FFIObject>(
         w,
         &api_client_name,
         &method_name,
@@ -223,20 +254,20 @@ async fn call_method_with_object(
     }
     let method_name = method_name.to_case(convert_case::Case::Snake);
     // add mock
-    set_mock_with_string_response(&method_name).await?;
+    ForgeMockServer::set_mock_with_string_response(&method_name).await?;
     let api_client_name = w.api_client_name.take().context("No client name")?;
     // get fn signature
-    let info = get_fn_signature(w, &api_client_name, &method_name)?;
+    let info = FFICaller::get_fn_signature(w, &api_client_name, &method_name)?;
     // there should be one input type of InlineObject[0-9]* or ObjectResponse
     assert_eq!(info.input_types.len(), 1);
     assert!(info.input_types[0].contains("Object"));
-    let ffi_object = run_method_one_serialized_param(
+    let ffi_object = FFICaller::run_method_one_serialized_param(
         w,
         &api_client_name,
         &method_name,
         RString::from(json_str)
     )?;
-    let tuple = serialize_returned_variable::<FFIObject>(
+    let tuple = FFICaller::serialize_returned_variable::<FFIObject>(
         w,
         &api_client_name,
         &method_name,
@@ -297,20 +328,35 @@ async fn call_method_with_server_responds_headers(
         .filter_map(|(k, v)| Some((&k[..], v.as_str()?)))
         .collect::<Vec<_>>();
     // add mock
-    set_mock_with_header(header_object[0]).await?;
+    ForgeMockServer::set_mock_with_header(header_object[0]).await?;
     let api_client_name = w.api_client_name.take().context("No client name")?;
     // fn
-    let info = get_fn_signature(w, &api_client_name, &method_name)?;
+    let info = FFICaller::get_fn_signature(w, &api_client_name, &method_name)?;
     // run method
     match info.return_type.as_str() {
         "String" => {
-            let response = get_response::<RString>(w, &api_client_name, &method_name, vec![])?;
-            let inner = returned_value_to_inner(w, &api_client_name, &method_name, response)?;
+            let response = FFIDispatcher::get_response::<RString>(
+                w,
+                &api_client_name,
+                &method_name,
+                vec![]
+            )?;
+            let inner = FFICaller::returned_value_to_inner(
+                w,
+                &api_client_name,
+                &method_name,
+                response
+            )?;
             w.last_string_response = Some(*inner);
         }
         _complex => {
-            let ffi_object = get_response::<FFIObject>(w, &api_client_name, &method_name, vec![])?;
-            let tuple = serialize_returned_variable::<FFIObject>(
+            let ffi_object = FFIDispatcher::get_response::<FFIObject>(
+                w,
+                &api_client_name,
+                &method_name,
+                vec![]
+            )?;
+            let tuple = FFICaller::serialize_returned_variable::<FFIObject>(
                 w,
                 &api_client_name,
                 &method_name,
@@ -334,10 +380,15 @@ async fn call_method_with_server_responds_empty(
         w.set_reset_client(None, None)?;
     }
     let method_name = method_name.to_case(convert_case::Case::Snake);
-    set_mock_empty().await?;
+    ForgeMockServer::set_mock_empty().await?;
     let api_client_name = w.api_client_name.take().context("No client name")?;
-    let ffi_object = get_response::<FFIObject>(w, &api_client_name, &method_name, vec![])?;
-    let tuple = serialize_returned_variable::<FFIObject>(
+    let ffi_object = FFIDispatcher::get_response::<FFIObject>(
+        w,
+        &api_client_name,
+        &method_name,
+        vec![]
+    )?;
+    let tuple = FFICaller::serialize_returned_variable::<FFIObject>(
         w,
         &api_client_name,
         &method_name,

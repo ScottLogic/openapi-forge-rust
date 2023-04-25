@@ -10,15 +10,9 @@ use anyhow::{ Context, Ok, Result };
 use convert_case::Casing;
 use cucumber::World;
 use data::*;
-use ffi::call::{
-    drop_api_client_if_exists,
-    get_api_client,
-    get_config,
-    get_http_client,
-    run_config_idx_change,
-};
+use ffi::call::FFICaller;
 use libloading::Library;
-use mock::SERVER;
+use mock::{ SERVER, ForgeMockServer };
 
 use crate::mock::PORT;
 use crate::util::FEATURES;
@@ -53,7 +47,7 @@ impl ForgeWorld {
     }
 
     fn set_library(&mut self) -> Result<()> {
-        let lib = ffi::call::get_generated_library(
+        let lib = FFICaller::get_generated_library(
             self.library_name_modifier.context("library modifier")?
         )?;
         self.library = Some(lib);
@@ -66,13 +60,13 @@ impl ForgeWorld {
         } else {
             "api_client".to_owned()
         };
-        drop_api_client_if_exists(self, &api_client_name)?;
-        let config = get_config(self)?;
+        FFICaller::drop_api_client_if_exists(self, &api_client_name)?;
+        let config = FFICaller::get_config(self)?;
         self.config = Some(config);
         if let Some(idx) = server_idx {
-            run_config_idx_change(self, idx)?;
+            FFICaller::run_config_idx_change(self, idx)?;
         }
-        let http_client = get_http_client(self)?;
+        let http_client = FFICaller::get_http_client(self)?;
         self.http_client = Some(http_client);
         if let Some(tag) = tag {
             self.api_client_name = Some(
@@ -81,7 +75,7 @@ impl ForgeWorld {
         } else {
             self.api_client_name = Some("api_client".to_owned());
         }
-        let api_client = get_api_client(self, &api_client_name)?;
+        let api_client = FFICaller::get_api_client(self, &api_client_name)?;
         self.api_client = Some(api_client);
         self.api_client_name = Some(api_client_name);
         Ok(())
@@ -92,7 +86,7 @@ impl ForgeWorld {
 async fn main() -> Result<()> {
     util::create_project_folders().await?;
     util::copy_feature_files().await?;
-    mock::init_mock_server(PORT).await?;
+    ForgeMockServer::init_mock_server(PORT).await?;
     ForgeWorld::cucumber().run(FEATURES).await;
     util::clean_up_all().await?;
     Ok(())

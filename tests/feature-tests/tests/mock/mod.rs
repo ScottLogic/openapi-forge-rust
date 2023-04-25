@@ -7,74 +7,80 @@ pub static SERVER: OnceCell<MockServer> = OnceCell::new();
 
 pub const PORT: u16 = 8888;
 
-pub async fn init_mock_server(port: u16) -> Result<()> {
-    let listener = std::net::TcpListener::bind(format!("127.0.0.1:{}", port))?;
-    let mock_server = MockServer::builder().listener(listener).start().await;
-    SERVER.get_or_init(|| mock_server);
-    Ok(())
-}
+pub struct ForgeMockServer;
 
-pub async fn set_mock_with_string_response(response: &str) -> Result<()> {
-    reset_server().await?;
-    if let Some(server) = SERVER.get() {
-        Mock::given(matchers::any())
-            .respond_with(ResponseTemplate::new(200).set_body_string(response))
-            .expect(1)
-            .mount(server).await;
-    } else {
-        bail!("Mock server cannot be accessed");
-    }
-    Ok(())
-}
-
-pub async fn set_mock_with_json_response(raw_response: &str) -> Result<()> {
-    reset_server().await?;
-    if let Some(server) = SERVER.get() {
-        Mock::given(matchers::any())
-            .respond_with(ResponseTemplate::new(200).set_body_raw(raw_response, "application/json"))
-            .expect(1)
-            .mount(server).await;
-    } else {
-        bail!("Mock server cannot be accessed");
-    }
-    Ok(())
-}
-
-pub async fn set_mock_empty() -> Result<()> {
-    reset_server().await?;
-    if let Some(server) = SERVER.get() {
-        Mock::given(matchers::any())
-            .respond_with(ResponseTemplate::new(200))
-            .expect(1)
-            .mount(server).await;
-    } else {
-        bail!("Mock server cannot be accessed");
-    }
-    Ok(())
-}
-
-pub async fn set_mock_with_header(header: (&str, &str)) -> Result<()> {
-    reset_server().await?;
-    if let Some(server) = SERVER.get() {
-        Mock::given(matchers::any())
-            .respond_with(
-                ResponseTemplate::new(200)
-                    .append_header(header.0, header.1)
-                    .set_body_raw("{}".as_bytes(), "application/json")
-            )
-            .expect(1)
-            .mount(server).await;
-    } else {
-        bail!("Mock server cannot be accessed");
-    }
-    Ok(())
-}
-
-pub async fn reset_server() -> Result<()> {
-    if let Some(server) = SERVER.get() {
-        server.reset().await;
+impl ForgeMockServer {
+    pub async fn init_mock_server(port: u16) -> Result<()> {
+        let listener = std::net::TcpListener::bind(format!("127.0.0.1:{}", port))?;
+        let mock_server = MockServer::builder().listener(listener).start().await;
+        SERVER.get_or_init(|| mock_server);
         Ok(())
-    } else {
-        bail!("Mock server cannot be accessed");
+    }
+
+    pub async fn set_mock_with_string_response(response: &str) -> Result<()> {
+        ForgeMockServer::reset_server().await?;
+        if let Some(server) = SERVER.get() {
+            Mock::given(matchers::any())
+                .respond_with(ResponseTemplate::new(200).set_body_string(response))
+                .expect(1)
+                .mount(server).await;
+        } else {
+            bail!("Mock server cannot be accessed");
+        }
+        Ok(())
+    }
+
+    pub async fn set_mock_with_json_response(raw_response: &str) -> Result<()> {
+        ForgeMockServer::reset_server().await?;
+        if let Some(server) = SERVER.get() {
+            Mock::given(matchers::any())
+                .respond_with(
+                    ResponseTemplate::new(200).set_body_raw(raw_response, "application/json")
+                )
+                .expect(1)
+                .mount(server).await;
+        } else {
+            bail!("Mock server cannot be accessed");
+        }
+        Ok(())
+    }
+
+    pub async fn set_mock_empty() -> Result<()> {
+        ForgeMockServer::reset_server().await?;
+        if let Some(server) = SERVER.get() {
+            Mock::given(matchers::any())
+                .respond_with(ResponseTemplate::new(200))
+                .expect(1)
+                .mount(server).await;
+        } else {
+            bail!("Mock server cannot be accessed");
+        }
+        Ok(())
+    }
+
+    pub async fn set_mock_with_header(header: (&str, &str)) -> Result<()> {
+        ForgeMockServer::reset_server().await?;
+        if let Some(server) = SERVER.get() {
+            Mock::given(matchers::any())
+                .respond_with(
+                    ResponseTemplate::new(200)
+                        .append_header(header.0, header.1)
+                        .set_body_raw("{}".as_bytes(), "application/json")
+                )
+                .expect(1)
+                .mount(server).await;
+        } else {
+            bail!("Mock server cannot be accessed");
+        }
+        Ok(())
+    }
+
+    pub async fn reset_server() -> Result<()> {
+        if let Some(server) = SERVER.get() {
+            server.reset().await;
+            Ok(())
+        } else {
+            bail!("Mock server cannot be accessed");
+        }
     }
 }

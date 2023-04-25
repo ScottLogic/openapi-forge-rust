@@ -8,8 +8,7 @@ use serde_json::{ json, Value };
 use url::Url;
 use wiremock::http::{ HeaderName, Method };
 
-use crate::ffi::call::check_method_exists;
-use crate::{ ffi::call::model_get_type_information, ForgeWorld };
+use crate::{ ffi::call::FFICaller, ForgeWorld };
 
 use crate::SERVER;
 
@@ -109,7 +108,7 @@ async fn response_should_have_property(
 #[then(expr = "it should generate a model object named {word}")]
 async fn model_should_have_object(w: &mut ForgeWorld, expected: String) -> Result<()> {
     let snake_name = expected.to_case(convert_case::Case::Snake);
-    let info = model_get_type_information(w, &snake_name)?;
+    let info = FFICaller::model_get_type_information(w, &snake_name)?;
     let actual = info.name;
     assert!(actual.contains(&expected));
     Ok(())
@@ -124,7 +123,7 @@ async fn object_should_have_type(
     expected_type: String
 ) -> Result<()> {
     let snake_name = object.to_case(convert_case::Case::Snake);
-    let info = model_get_type_information(w, &snake_name)?;
+    let info = FFICaller::model_get_type_information(w, &snake_name)?;
     let expected_name_snake_case = RString::from(expected_name.to_case(convert_case::Case::Snake));
     assert!(info.fields.contains_key(&expected_name_snake_case));
     let actual_type = info.fields
@@ -268,7 +267,7 @@ async fn api_client_with_tag_should_have_method(
     w.set_reset_client(None, some_tag)?;
     let api_client_name = w.api_client_name.take().context("No client name")?;
     let method_name_snake = method_name.to_case(convert_case::Case::Snake);
-    check_method_exists(w, &api_client_name, &method_name_snake)?;
+    FFICaller::check_method_exists(w, &api_client_name, &method_name_snake)?;
     Ok(())
 }
 
@@ -284,7 +283,7 @@ async fn api_client_with_tag_should_not_have_method(
     w.set_reset_client(None, some_tag)?;
     let api_client_name = w.api_client_name.take().context("No client name")?;
     let method_name_snake = method_name.to_case(convert_case::Case::Snake);
-    if let Err(_e) = check_method_exists(w, &api_client_name, &method_name_snake) {
+    if let Err(_e) = FFICaller::check_method_exists(w, &api_client_name, &method_name_snake) {
         Ok(())
     } else {
         bail!("The method exists");
