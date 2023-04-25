@@ -78,8 +78,8 @@ impl ForgeWorld {
         } else {
             self.api_client_name = Some("api_client".to_owned());
         }
-        let client = get_api_client(self, &api_client_name)?;
-        self.api_client = Some(client);
+        let api_client = get_api_client(self, &api_client_name)?;
+        self.api_client = Some(api_client);
         self.api_client_name = Some(api_client_name);
         Ok(())
     }

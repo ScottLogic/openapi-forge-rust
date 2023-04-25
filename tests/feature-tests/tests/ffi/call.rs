@@ -145,12 +145,12 @@ pub fn serialize_returned_variable<T>(
 
 pub fn returned_value_to_inner<T>(
     w: &mut ForgeWorld,
-    client_name: &str,
+    api_client_name: &str,
     method_name: &str,
     last_result: Box<ForgeResponse<T>>,
 ) -> Result<Box<T>> {
     unsafe {
-        let c_method = format!("c_{}_{}_to_inner", client_name, method_name);
+        let c_method = format!("c_{}_{}_to_inner", api_client_name, method_name);
         let c_method_bytes = c_method.as_bytes();
         if let Some(library) = &w.library {
             let func: Symbol<extern "C" fn(Box<ForgeResponse<T>>) -> Box<T>> =
@@ -165,11 +165,11 @@ pub fn returned_value_to_inner<T>(
 
 pub fn run_method_no_params<T>(
     w: &mut ForgeWorld,
-    client_name: &str,
+    api_client_name: &str,
     method_name: &str,
 ) -> Result<Box<ForgeResponse<T>>> {
     unsafe {
-        let c_method = format!("c_{}_{}", client_name, method_name);
+        let c_method = format!("c_{}_{}", api_client_name, method_name);
         let c_method_bytes = c_method.as_bytes();
         if let Some(library) = &w.library {
             let func: Symbol<extern "C" fn(Box<ApiClient>) -> Box<ForgeResponse<T>>> =
@@ -189,12 +189,12 @@ pub fn run_method_no_params<T>(
 
 pub fn run_method_one_param<T, U>(
     w: &mut ForgeWorld,
-    client_name: &str,
+    api_client_name: &str,
     method_name: &str,
     arg_1: T,
 ) -> Result<Box<ForgeResponse<U>>> {
     unsafe {
-        let c_method = format!("c_{}_{}", client_name, method_name);
+        let c_method = format!("c_{}_{}", api_client_name, method_name);
         let c_method_bytes = c_method.as_bytes();
         if let Some(library) = &w.library {
             let func: Symbol<extern "C" fn(Box<ApiClient>, T) -> Box<ForgeResponse<U>>> =
@@ -214,12 +214,12 @@ pub fn run_method_one_param<T, U>(
 
 pub fn run_method_one_serialized_param<T>(
     w: &mut ForgeWorld,
-    client_name: &str,
+    api_client_name: &str,
     method_name: &str,
     arg_1: RString,
 ) -> Result<Box<ForgeResponse<T>>> {
     unsafe {
-        let c_method = format!("c_{}_{}_serialized_params", client_name, method_name);
+        let c_method = format!("c_{}_{}_serialized_params", api_client_name, method_name);
         let c_method_bytes = c_method.as_bytes();
         if let Some(library) = &w.library {
             let func: Symbol<extern "C" fn(Box<ApiClient>, RString) -> Box<ForgeResponse<T>>> =
@@ -239,13 +239,13 @@ pub fn run_method_one_serialized_param<T>(
 
 pub fn run_method_two_params<T, U, V>(
     w: &mut ForgeWorld,
-    client_name: &str,
+    api_client_name: &str,
     method_name: &str,
     arg_1: T,
     arg_2: U,
 ) -> Result<Box<ForgeResponse<V>>> {
     unsafe {
-        let c_method = format!("c_{}_{}", client_name, method_name);
+        let c_method = format!("c_{}_{}", api_client_name, method_name);
         let c_method_bytes = c_method.as_bytes();
         if let Some(library) = &w.library {
             let func: Symbol<extern "C" fn(Box<ApiClient>, T, U) -> Box<ForgeResponse<V>>> =
@@ -265,14 +265,14 @@ pub fn run_method_two_params<T, U, V>(
 
 pub fn run_method_three_params<T, U, V, W>(
     w: &mut ForgeWorld,
-    client_name: &str,
+    api_client_name: &str,
     method_name: &str,
     arg_1: T,
     arg_2: U,
     arg_3: V,
 ) -> Result<Box<ForgeResponse<W>>> {
     unsafe {
-        let c_method = format!("c_{}_{}", client_name, method_name);
+        let c_method = format!("c_{}_{}", api_client_name, method_name);
         let c_method_bytes = c_method.as_bytes();
         if let Some(library) = &w.library {
             let func: Symbol<extern "C" fn(Box<ApiClient>, T, U, V) -> Box<ForgeResponse<W>>> =
@@ -308,8 +308,8 @@ pub fn model_get_type_information(
     }
 }
 
-pub fn check_method_exists(w: &mut ForgeWorld, client_name: &str, method_name: &str) -> Result<()> {
-    let c_method = format!("c_{}_{}", client_name, method_name);
+pub fn check_method_exists(w: &mut ForgeWorld, api_client_name: &str, method_name: &str) -> Result<()> {
+    let c_method = format!("c_{}_{}", api_client_name, method_name);
     let c_method_bytes = c_method.as_bytes();
     unsafe {
         if let Some(library) = &w.library {

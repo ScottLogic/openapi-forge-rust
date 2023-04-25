@@ -47,9 +47,9 @@ async fn call_method_without_params(w: &mut ForgeWorld, method_name: String) -> 
     }
     let method_name = method_name.to_case(convert_case::Case::Snake);
     set_mock_with_string_response(&method_name).await?;
-    let api_client_name = w.api_client_name.clone().context("No client name")?;
+    let api_client_name = w.api_client_name.take().context("No client name")?;
     let fn_signature = get_fn_signature(w, &api_client_name, &method_name)?;
-    let params = get_fn_params(vec![], fn_signature.input_types.clone());
+    let params = get_fn_params(&vec![], &fn_signature.input_types);
     match fn_signature.return_type.as_str() {
         "String" => {
             let response = get_response::<RString>(w, &api_client_name, &method_name, params)?;
@@ -67,6 +67,7 @@ async fn call_method_without_params(w: &mut ForgeWorld, method_name: String) -> 
             w.last_object_response = Some(tuple);
         }
     }
+    w.api_client_name = Some(api_client_name);
     w.last_fn_call_sign = Some(fn_signature);
     Ok(())
 }
@@ -92,7 +93,7 @@ async fn call_method_with_server_responds(
     let method_name = method_name.to_case(convert_case::Case::Snake);
     // add mock
     set_mock_with_json_response(raw_response_body).await?;
-    let api_client_name = w.api_client_name.clone().context("No client name")?;
+    let api_client_name = w.api_client_name.take().context("No client name")?;
     // fn
     let info = get_fn_signature(w, &api_client_name, &method_name)?;
     // run method
@@ -113,6 +114,7 @@ async fn call_method_with_server_responds(
             w.last_object_response = Some(tuple);
         }
     }
+    w.api_client_name = Some(api_client_name);
     w.last_fn_call_sign = Some(info);
     Ok(())
 }
@@ -136,14 +138,14 @@ async fn call_method_with_params(
     let method_name = method_name.to_case(convert_case::Case::Snake);
     let trimmed = &params[1..params.len() - 1];
     let list = trimmed.split(',').collect::<Vec<_>>();
-    let api_client_name = w.api_client_name.clone().context("No client name")?;
+    let api_client_name = w.api_client_name.take().context("No client name")?;
     // add mock
     set_mock_with_string_response(&method_name).await?;
     // get fn signature
     let info = get_fn_signature(w, &api_client_name, &method_name)?;
     let return_type = &info.return_type;
     // collect params
-    let params = get_fn_params(list, info.input_types.clone());
+    let params = get_fn_params(&list, &info.input_types);
     // run method
     match return_type.as_str() {
         "String" => {
@@ -162,6 +164,7 @@ async fn call_method_with_params(
             w.last_object_response = Some(tuple);
         }
     }
+    w.api_client_name = Some(api_client_name);
     Ok(())
 }
 
@@ -183,7 +186,7 @@ async fn call_method_with_array(
         .collect::<RVec<_>>();
     // add mock
     set_mock_with_string_response(&method_name).await?;
-    let api_client_name = w.api_client_name.clone().context("No client name")?;
+    let api_client_name = w.api_client_name.take().context("No client name")?;
     // get fn signature
     let info = get_fn_signature(w, &api_client_name, &method_name)?;
     // there should be one input type of Vec
@@ -195,6 +198,7 @@ async fn call_method_with_array(
     let tuple =
         serialize_returned_variable::<FFIObject>(w, &api_client_name, &method_name, ffi_object)?;
     w.last_object_response = Some(tuple);
+    w.api_client_name = Some(api_client_name);
     Ok(())
 }
 
@@ -211,7 +215,7 @@ async fn call_method_with_object(
     let method_name = method_name.to_case(convert_case::Case::Snake);
     // add mock
     set_mock_with_string_response(&method_name).await?;
-    let api_client_name = w.api_client_name.clone().context("No client name")?;
+    let api_client_name = w.api_client_name.take().context("No client name")?;
     // get fn signature
     let info = get_fn_signature(w, &api_client_name, &method_name)?;
     // there should be one input type of InlineObject[0-9]* or ObjectResponse
@@ -227,6 +231,7 @@ async fn call_method_with_object(
         serialize_returned_variable::<FFIObject>(w, &api_client_name, &method_name, ffi_object)?;
     w.last_object_response = Some(tuple);
     w.last_fn_call_sign = Some(info);
+    w.api_client_name = Some(api_client_name);
     Ok(())
 }
 
@@ -247,13 +252,13 @@ async fn choose_index_of_array(w: &mut ForgeWorld, idx: usize) -> Result<()> {
         let serialized = &last.1;
         let mut value = serde_json::from_str::<Value>(serialized.as_str())?;
         let data = value.get_mut("data").context("data container")?;
-        let array = data.as_array().context("cannot take array")?;
-        let extracted = array.get(idx).context("index access")?.clone();
+        let array = data.as_array_mut().context("cannot take array")?;
+        let extracted = array.remove(idx);
         *data = extracted;
         let extracted_serialized = RString::from(value.to_string());
         w.last_object_response = Some(FFISafeTuple(last.0, extracted_serialized));
     } else {
-        bail!("np last response");
+        bail!("no last response");
     }
 
     Ok(())
@@ -280,7 +285,7 @@ async fn call_method_with_server_responds_headers(
         .collect::<Vec<_>>();
     // add mock
     set_mock_with_header(header_object[0]).await?;
-    let api_client_name = w.api_client_name.clone().context("No client name")?;
+    let api_client_name = w.api_client_name.take().context("No client name")?;
     // fn
     let info = get_fn_signature(w, &api_client_name, &method_name)?;
     // run method
@@ -301,6 +306,7 @@ async fn call_method_with_server_responds_headers(
             w.last_object_response = Some(tuple);
         }
     }
+    w.api_client_name = Some(api_client_name);
     w.last_fn_call_sign = Some(info);
     Ok(())
 }
@@ -316,10 +322,11 @@ async fn call_method_with_server_responds_empty(
     }
     let method_name = method_name.to_case(convert_case::Case::Snake);
     set_mock_empty().await?;
-    let api_client_name = w.api_client_name.clone().context("No client name")?;
+    let api_client_name = w.api_client_name.take().context("No client name")?;
     let ffi_object = get_response::<FFIObject>(w, &api_client_name, &method_name, vec![])?;
     let tuple =
         serialize_returned_variable::<FFIObject>(w, &api_client_name, &method_name, ffi_object)?;
     w.last_object_response = Some(tuple);
+    w.api_client_name = Some(api_client_name);
     Ok(())
 }

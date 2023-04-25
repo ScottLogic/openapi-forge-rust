@@ -163,7 +163,7 @@ async fn request_should_have_body(_w: &mut ForgeWorld, body: String) -> Result<(
         if let Some(req) = server.received_requests().await {
             assert!(req.len() > 0);
             let last_req = &req[req.len() - 1];
-            assert_eq!(String::from_utf8(last_req.body.clone())?, body);
+            assert_eq!(last_req.body, body.as_bytes());
         }
     }
     Ok(())
@@ -267,7 +267,7 @@ async fn api_client_with_tag_should_have_method(
     let some_tag = if tag.is_empty() { None } else { Some(tag) };
     let method_name = &method_name[1..&method_name.len() - 1];
     w.set_reset_client(None, some_tag)?;
-    let api_client_name = w.api_client_name.clone().context("No client name")?;
+    let api_client_name = w.api_client_name.take().context("No client name")?;
     let method_name_snake = method_name.to_case(convert_case::Case::Snake);
     check_method_exists(w, &api_client_name, &method_name_snake)?;
     Ok(())
@@ -283,7 +283,7 @@ async fn api_client_with_tag_should_not_have_method(
     let some_tag = if tag.is_empty() { None } else { Some(tag) };
     let method_name = &method_name[1..&method_name.len() - 1];
     w.set_reset_client(None, some_tag)?;
-    let api_client_name = w.api_client_name.clone().context("No client name")?;
+    let api_client_name = w.api_client_name.take().context("No client name")?;
     let method_name_snake = method_name.to_case(convert_case::Case::Snake);
     if let Err(_e) = check_method_exists(w, &api_client_name, &method_name_snake) {
         Ok(())
