@@ -13,7 +13,7 @@ const pushToQueryParam = (name, value) =>
     value
   )}.to_string().into()));`;
 
-const serialiseArrayParam = (param, is_required = false) => {
+const serialiseArrayParam = (param) => {
   const safeParamName = toParamName(param.name);
   const serialisedParam =
     `for el in ${safeParamName} {` +
@@ -26,6 +26,7 @@ const serialiseObjectParam = (param, is_required = false, is_cabi = false) => {
   const safeParamName = toParamName(param.name);
   let serialisedObject = "";
   for (const [propName, objProp] of Object.entries(param.schema.properties)) {
+    let res = "";
     if (!isRequired(objProp)) {
       res =
         `if let ` +
@@ -83,8 +84,6 @@ const createQueryStringSnippet = (params, is_cabi = false) => {
       case "array":
         serialisedQueryParam = serialiseArrayParam(
           queryParam,
-          queryParam.required,
-          is_cabi
         );
         break;
       case "object":

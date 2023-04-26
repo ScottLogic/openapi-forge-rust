@@ -1,5 +1,5 @@
 const rename_files = require("./postProcessRenameFiles");
 
-module.exports = (folder, _, options) => {
-  rename_files(folder, options);
+module.exports = (folder) => {
+  rename_files(folder);
 };

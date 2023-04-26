@@ -5,7 +5,7 @@ const camelToSnakeCase = (str) =>
 
 // Lowercase and snake case ApiClient rs files
 
-module.exports = (folder, _) => {
+module.exports = (folder) => {
   shell.cd(folder + "/src/api_client");
   shell.ls("*.rs").forEach(function (file) {
     shell.mv(file, camelToSnakeCase(file).toLowerCase());

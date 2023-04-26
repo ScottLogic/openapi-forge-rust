@@ -13,7 +13,7 @@ const createHeaderParamsSnippet = (sortedParams, is_cabi = false) => {
   if (cookieParams.length !== 0) {
     let cookie = "[";
     for (const cookieParam of cookieParams) {
-      safeParamName = toParamName(cookieParam.name);
+      let safeParamName = toParamName(cookieParam.name);
       if (cookieParam._optional) {
         cookie +=
           `if let ` +
