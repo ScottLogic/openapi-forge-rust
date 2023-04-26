@@ -82,9 +82,7 @@ const createQueryStringSnippet = (params, is_cabi = false) => {
     let serialisedQueryParam;
     switch (queryParam.schema.type) {
       case "array":
-        serialisedQueryParam = serialiseArrayParam(
-          queryParam,
-        );
+        serialisedQueryParam = serialiseArrayParam(queryParam);
         break;
       case "object":
         serialisedQueryParam = serialiseObjectParam(
