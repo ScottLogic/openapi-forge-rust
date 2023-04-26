@@ -2,10 +2,19 @@
 pub mod api_client{{toRustParamName name}};
 {{/each}}
 
-{{#ifEquals _options.[generator.cabi] "true"}}
-use reqwest::Client;
+{{#ifEquals _options.[generator.cabi_testing] "true"}}
+use reqwest::blocking::Client;
 #[no_mangle]
 pub extern "C" fn c_reqwest_client_new() -> Box<Client>{
     Box::new(Client::new())
+}
+
+use abi_stable::std_types::string::RString as String;
+use abi_stable::std_types::vec::RVec as Vec;
+
+#[repr(C)]
+pub struct FnSignatureInformation {
+    pub input_types: Vec<String>,
+    pub return_type: String,
 }
 {{/ifEquals}}

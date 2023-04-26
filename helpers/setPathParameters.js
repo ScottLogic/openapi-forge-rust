@@ -6,7 +6,7 @@ const getSome = require("./getSome");
 const setPathParameters = (path, sortedParams, is_cabi = false) => {
   const pathParams = getParametersByType(sortedParams, "path");
   if (pathParams.length === 0) {
-    return `"` +path + `"`;
+    return `"` + path + `"`;
   }
 
   let res = new Handlebars.SafeString(
@@ -23,24 +23,30 @@ const setPathParameters = (path, sortedParams, is_cabi = false) => {
       const URL_SAFE_COMMA = "%2C";
       switch (pathParam.schema.type) {
         case "array":
-          return `" + ${safeParamName}.iter().join("${URL_SAFE_COMMA}") + "`;
+          return `", &${safeParamName}.join( "%2C"), "`;
         case "object": {
           let serialisedObject = "";
           for (const [propName] of Object.entries(
             pathParam.schema.properties
           )) {
-            serialisedObject += `${propName}${URL_SAFE_COMMA}" + ${safeParamName}.${propName}.into() + "${URL_SAFE_COMMA}`;
+            // inside inline objects, there are no required annotations.
+            serialisedObject += `", &${safeParamName}.${toRustParamName(
+              propName
+            )}.map_or("".into(), |value| format!("${propName}${URL_SAFE_COMMA}{}", value)), "${URL_SAFE_COMMA}`;
           }
           return serialisedObject.slice(0, -3);
         }
-        default:
-          {
-            if (pathParam.required) {
-              return `", &${safeParamName}.to_string(), "`;
-            } else {
-              return `", &{ if let ` + getSome(is_cabi) + `(${safeParamName}) = ${safeParamName} { ${safeParamName}.to_string() } else { "".into() } }, "`
-            }
+        default: {
+          if (pathParam.required) {
+            return `", &${safeParamName}.to_string(), "`;
+          } else {
+            return (
+              `", &{ if let ` +
+              getSome(is_cabi) +
+              `(${safeParamName}) = ${safeParamName} { ${safeParamName}.to_string() } else { "".into() } }, "`
+            );
           }
+        }
       }
     })
   );

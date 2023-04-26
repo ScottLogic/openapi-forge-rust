@@ -1,12 +1,15 @@
-use serde::{Serialize, Deserialize};
-
-{{#ifEquals _options.[generator.cabi] "true"}}
+{{#ifEquals _options.[generator.cabi_testing] "true"}}
+#![allow(unused_imports)]
 use abi_stable::std_types::string::RString as String;
+use abi_stable::std_types::RHashMap as HashMap;
 use abi_stable::std_types::ROption as Option;
 use abi_stable::std_types::vec::RVec as Vec;
+use crate::response::ForgeResponse;
 {{/ifEquals}}
 
-{{setVar "cabi" _options.[generator.cabi]}}
+use serde::{Serialize, Deserialize};
+
+{{setVar "cabi" _options.[generator.cabi_testing]}}
 
 {{#each components.schemas}}
 {{> model}}
@@ -21,3 +24,17 @@ use abi_stable::std_types::vec::RVec as Vec;
 
 {{/unless}}
 {{/each}}
+
+{{#ifEquals _options.[generator.cabi_testing] "true"}}
+#[repr(C)]
+#[derive(Debug)]
+pub struct FFISafeTuple<T>(pub Box<ForgeResponse<T>>,pub String);
+
+#[repr(C)]
+#[derive(Serialize)]
+pub struct ObjectTypeInformation {
+    pub type_name: String,
+    pub fields: HashMap<String, String>
+}
+
+{{/ifEquals}}

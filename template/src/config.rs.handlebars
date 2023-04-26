@@ -1,4 +1,9 @@
-const SERVERS: [&str, {{servers.length}}] =  [{{~#each servers~}}"{{url}}"{{#unless @last}},{{/unless}}{{~/each~}}];
+{{#ifNotEquals _options.[generator.cabi_testing] "true"}}
+const SERVERS: [&str, {{getOptionalLen servers.length}}] =  [{{~#each servers~}}"{{url}}"{{#unless @last}},{{/unless}}{{~/each~}}];
+{{/ifNotEquals}}
+{{#ifEquals _options.[generator.cabi_testing] "true"}}
+const SERVERS: [&str, {{getOptionalLen servers.length}}] =  [{{~#each servers~}}"{{urlPath url}}"{{#unless @last}},{{/unless}}{{~/each~}}];
+{{/ifEquals}}
 
 pub struct Configuration {
     pub base_path: String,
@@ -16,14 +21,24 @@ impl Configuration {
     }
 
     pub fn get_base_address(&self) -> String {
-        self.base_path.to_owned() + SERVERS[self.selected_server_index]
+        if SERVERS.is_empty() {
+            self.base_path.to_owned()
+        } else {
+            self.base_path.to_owned() + SERVERS[self.selected_server_index]
+        }
     }
 }
 
-{{#ifEquals _options.[generator.cabi] "true"}}
+{{#ifEquals _options.[generator.cabi_testing] "true"}}
 use abi_stable::std_types::string::RString;
 #[no_mangle]
 pub extern "C" fn c_config_new(base_path: RString) -> Box<Configuration>{
     Box::new(Configuration::new(&base_path))
+}
+
+#[no_mangle]
+pub extern "C" fn c_config_select_server_index(mut config: Box<Configuration>, idx: u8) -> Box<Configuration>{
+    config.selected_server_index = idx as usize;
+    config
 }
 {{/ifEquals}}

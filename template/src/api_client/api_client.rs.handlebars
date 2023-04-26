@@ -1,27 +1,30 @@
-{{setVar "cabi" _options.[generator.cabi]}}
-{{#ifEquals _options.[generator.cabi] "true"}}
+{{setVar "cabi" _options.[generator.cabi_testing]}}
+
+{{#ifEquals _options.[generator.cabi_testing] "true"}}
+#![allow(unused_imports)]
 use abi_stable::std_types::RHashMap as HashMap;
+use reqwest::blocking::Client;
+use abi_stable::std_types::string::RString as String;
+use abi_stable::std_types::ROption as Option;
+use abi_stable::std_types::vec::RVec as Vec;
+
+use crate::api_client::FnSignatureInformation;
 {{/ifEquals}}
-{{#ifNotEquals _options.[generator.cabi] "true"}}
+
+{{#ifNotEquals _options.[generator.cabi_testing] "true"}}
 use std::collections::HashMap;
+use reqwest::Client;
 {{/ifNotEquals}}
 
-
-use reqwest::Client;
 use reqwest::Url;
+use reqwest::Method;
+
+use anyhow::Result;
 
 use crate::config::Configuration;
 use crate::{response::ForgeResponse, model::*};
 
-{{#ifEquals _options.[generator.cabi] "true"}}
-use abi_stable::std_types::string::RString as String;
-use abi_stable::std_types::ROption as Option;
-#[allow(unused_imports)]
-use abi_stable::std_types::vec::RVec as Vec;
-use async_ffi::{FfiFuture, FutureExt};
-{{/ifEquals}}
-
-{{#ifEquals _options.[generator.cabi] "true"}}
+{{#ifEquals _options.[generator.cabi_testing] "true"}}
 #[repr(C)]
 {{/ifEquals}}
 pub struct ApiClient{{_tag.name}} {
@@ -52,7 +55,7 @@ impl ApiClient{{_tag.name}} {
     {{#each _sortedParameters}}
     // <param name="{{name}}">{{description}}</param>
     {{/each}}
-    pub async fn {{toRustParamName operationId}} (
+    pub {{#ifNotEquals @root.cabi "true"}}async{{/ifNotEquals}} fn {{toRustParamName operationId}} (
         &self, 
         {{~#each _sortedParameters ~}}
             {{#ifEquals required true}}
@@ -61,36 +64,60 @@ impl ApiClient{{_tag.name}} {
                 {{toRustParamName name ~}}: {{~safeTypeConvert schema false}},
             {{/ifEquals}}
         {{~/each ~}}
-    ) -> ForgeResponse<{{safeTypeConvert _response.schema true}}>
+    ) -> Result<ForgeResponse<{{safeTypeConvert _response.schema true}}>>
     {
         {{#each _sortedParameters}}
             {{#if (hasDefault schema)}}
             // Set default value for {{toRustParamName name}}
-            let {{toRustParamName name ~}} = if ({{toRustParamName name ~}}.is_none()) { {{getSome @root.cabi}} ({{{quoteIfString schema.default}}}.into()) } else { status }; 
+            let {{toRustParamName name ~}} = if ({{toRustParamName name ~}}.is_none()) { {{getSome @root.cabi}} ({{{quoteIfString schema.default}}}.into()) } else { {{toRustParamName name ~}} }; 
             {{/if ~}}
         {{/each}}
         let url = self.config.get_base_address() + {{{setPathParameters @root.path _sortedParameters @root.cabi}}};
-        let request_uri = Url::parse(&url).unwrap();
+        // dbg!(&url);
+        let request_uri = Url::parse(&url)?;
         {{#if (queryParametersExist _sortedParameters)}}
         {{createQueryStringSnippet _sortedParameters @root.cabi}}
         {{/if}}
-        let response = self.client.{{@key}}(request_uri)
+        {{#if (headerParametersExist _sortedParameters)}}
+        {{createHeaderParamsSnippet _sortedParameters @root.cabi}}
+        {{/if}}
+        let response = self.client.request(Method::{{toAllCapital @key}}, request_uri)
         {{#if (queryParametersExist _sortedParameters)}}
         .query(&query_params)
+        {{/if}}
+        {{#if (headerParametersExist _sortedParameters)}}
+        .headers(headers)
         {{/if}}
         {{#if (bodyParameterExists _sortedParameters)}}
         .json(&body)
         {{/if}}
         .send()
-        .await.unwrap();
+        {{#ifNotEquals @root.cabi "true"}}.await{{/ifNotEquals}}?;
+        // dbg!(&response);
         let status_code = response.status().as_u16();
         let headers = response
             .headers()
             .iter()
-            .map(|(k, v)| (k.to_string().into(), v.to_str().unwrap().into()))
+            .filter_map(|(k, v)| Some((k.to_string().into(), v.to_str().ok()?.into())))
             .collect::<HashMap<_, _>>();
-        let data = response.json::<{{safeTypeConvert _response.schema true}}>().await.unwrap();
-        ForgeResponse::new(data, status_code, headers )
+        {{#ifNotEquals (safeTypeConvert _response.schema true) "()"}}
+        let data = response
+        {{#if (complexReturnType _response.schema)}}
+            .json::<{{safeTypeConvert _response.schema true}}>()
+        {{else}}
+            .text()
+        {{/if}}
+            {{#ifNotEquals @root.cabi "true"}}.await{{/ifNotEquals}}?;
+        {{/ifNotEquals}}
+        Ok(ForgeResponse::new(
+            {{#ifEquals (safeTypeConvert _response.schema true) "()"}}
+            (),
+            {{/ifEquals}}
+            {{#ifNotEquals (safeTypeConvert _response.schema true) "()"}}
+            data.into(), 
+            {{/ifNotEquals}}
+            status_code, 
+            headers))
     }
     {{else}}
     #[allow(unused_variables)]
@@ -102,7 +129,7 @@ impl ApiClient{{_tag.name}} {
                 {{toRustParamName name ~}}: {{~safeTypeConvert schema false}},
             {{/ifEquals}}
         {{~/each ~}}
-    ) -> ForgeResponse<{{safeTypeConvert _response.schema true}}>
+    ) -> Result<ForgeResponse<{{safeTypeConvert _response.schema true}}>>
     {
         panic!("Operation `{{toRustParamName operationId}}` most likely does not support json encoded requests which are not supported by openapi forge.", );
     }    
@@ -113,7 +140,7 @@ impl ApiClient{{_tag.name}} {
 }
 
 
-{{#ifEquals _options.[generator.cabi] "true"}}
+{{#ifEquals _options.[generator.cabi_testing] "true"}}
 #[no_mangle]
 pub extern "C" fn c_api_client{{toRustParamName _tag.name}}_new(
     config: Box<Configuration>,
@@ -121,6 +148,12 @@ pub extern "C" fn c_api_client{{toRustParamName _tag.name}}_new(
 ) -> Box<ApiClient{{_tag.name}}>{
     Box::new(ApiClient{{_tag.name}} { config: *config, client: *client })
 }
+
+// Give drop api access since library user doesn't necessarily know the memory layout.
+#[no_mangle]
+pub extern "C" fn c_api_client{{toRustParamName _tag.name}}_drop(
+    _api_client: Box<ApiClient{{_tag.name}}>,
+){}
 {{#each paths}}
 {{~setVar "path" @key}}
 {{~#each this}}
@@ -136,9 +169,8 @@ pub extern "C" fn c_api_client{{toRustParamName _tag.name}}_{{toRustParamName op
             {{toRustParamName name ~}}: {{~safeTypeConvert schema false}},
         {{/ifEquals}}
     {{~/each ~}}
-) -> FfiFuture<ForgeResponse<{{safeTypeConvert _response.schema true}}>> {
-    async move {
-        api_client.{{toRustParamName operationId}}(
+) -> Box<ForgeResponse<{{safeTypeConvert _response.schema true}}>> {
+        Box::new(api_client.{{toRustParamName operationId}}(
         {{~#each _sortedParameters ~}}
             {{#ifEquals required true}}
                 {{toRustParamName name ~}},
@@ -146,10 +178,54 @@ pub extern "C" fn c_api_client{{toRustParamName _tag.name}}_{{toRustParamName op
                 {{toRustParamName name ~}},
             {{/ifEquals}}
         {{~/each ~}}
-        ).await
-    }
-    .into_ffi()
+        ).unwrap())
 }
+
+#[no_mangle]
+pub extern "C" fn c_api_client{{toRustParamName _tag.name}}_{{toRustParamName operationId}}_serialize ( 
+    o: Box<ForgeResponse<{{safeTypeConvert _response.schema true}}>>
+) -> FFISafeTuple<{{safeTypeConvert _response.schema true}}> {
+    let serialized = serde_json::to_string(&o).unwrap();
+    FFISafeTuple::<{{safeTypeConvert _response.schema true}}>(o, serialized.into())
+}
+
+#[no_mangle]
+pub extern "C" fn c_api_client{{toRustParamName _tag.name}}_{{toRustParamName operationId}}_to_inner (
+    o: Box<ForgeResponse<{{safeTypeConvert _response.schema true}}>>
+) -> Box<{{safeTypeConvert _response.schema true}}> {
+    Box::new(o.data)
+}
+
+#[no_mangle]
+pub extern "C" fn c_api_client{{toRustParamName _tag.name}}_{{toRustParamName operationId}}_serialized_params ( 
+    api_client: Box<ApiClient{{_tag.name}}>,
+    {{~#each _sortedParameters ~}}
+    {{toRustParamName name ~}}: String,
+    {{~/each ~}}
+) -> Box<ForgeResponse<{{safeTypeConvert _response.schema true}}>> {
+    c_api_client{{toRustParamName _tag.name}}_{{toRustParamName operationId}}(
+        api_client,
+        {{~#each _sortedParameters ~}}
+        serde_json::from_str(&{{toRustParamName name ~}}).unwrap(),
+        {{~/each ~}}
+    )
+}
+
+#[no_mangle]
+pub extern "C" fn c_api_client{{toRustParamName _tag.name}}_{{toRustParamName operationId}}_signature() -> FnSignatureInformation {
+    let {{#each _sortedParameters}}{{#if @last}}mut{{/if}}{{/each}} input_types = Vec::new();
+    {{~#each _sortedParameters ~}}
+        {{#ifEquals required true}}
+            {{setVar "is_required" true}}
+        {{else}}
+            {{setVar "is_required" false}}
+        {{/ifEquals}}
+        input_types.push("{{~safeTypeConvert schema @root.is_required}}".into());
+    {{~/each ~}}
+    let return_type = "{{safeTypeConvert _response.schema true}}".into();
+    FnSignatureInformation { input_types, return_type }
+}
+
 {{/if}}
 {{/ifEquals}}
 {{/each}}  

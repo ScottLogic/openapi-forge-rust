@@ -9,19 +9,19 @@
   "scripts": {
     "prepare": "husky install",
     "test": "npm run test:generators",
-    "test:generators": "node startTests.js",
+    "test:generators": "cargo t --manifest-path tests/feature-tests/Cargo.toml --test bdd -- --concurrency 1",
     "lint:check:all": "eslint .",
     "lint:write:all": "eslint --fix .",
-    "format:check:all": "npm run format:check:java && npm run format:check:javascript",
-    "format:check:java": "ls",
+    "format:check:all": "npm run format:check:rust && npm run format:check:javascript",
+    "format:check:rust": "ls",
     "format:check:javascript": "prettier --check .",
-    "format:write:all": "npm run format:write:java && npm run format:write:javascript",
-    "format:write:java": "ls",
+    "format:write:all": "npm run format:write:rust && npm run format:write:javascript",
+    "format:write:rust": "ls",
     "format:write:javascript": "prettier --write ."
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ms14981/openapi-forge-java-initial.git"
+    "url": "git+https://github.com/gkocak-scottlogic/openapi-forge-rust.git"
   },
   "keywords": [
     "openapi-forge",
@@ -30,9 +30,9 @@
   "author": "gkocak",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/ms14981/openapi-forge-java-initial/issues"
+    "url": "https://github.com/gkocak-scottlogic/openapi-forge-rust/issues"
   },
-  "homepage": "https://github.com/ms14981/openapi-forge-java-initial#readme",
+  "homepage": "https://github.com/gkocak-scottlogic/openapi-forge-rust#readme",
   "devDependencies": {
     "@commitlint/cli": "^17.1.2",
     "@commitlint/config-conventional": "^17.1.0",
