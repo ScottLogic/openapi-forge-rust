@@ -2,9 +2,9 @@ name: Test
 
 on:
   push:
-    branches: [master]
+    branches: [main]
   pull_request:
-    branches: [master]
+    branches: [main]
 
 jobs:
   test-generator:
@@ -16,15 +16,18 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 16.x
-
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
       - name: Check out Git repository
         uses: actions/checkout@v3 
         with: 
-          path: openapi-forge-java
+          path: openapi-forge-rust
        
-      - name: Install Node.js dependencies
+      - name: Install Node.js dependencies for forge-rust
         run: |
-          cd openapi-forge-java
+          cd openapi-forge-rust
           npm install
 
       - name: Check out the openapi-forge generator
@@ -33,7 +36,12 @@ jobs:
           repository: ScottLogic/openapi-forge
           path: openapi-forge
 
+      - name: Install Node.js dependencies for forge
+        run: |
+          cd openapi-forge
+          npm install
+
       - name: Run the tests
         run: |
-          cd openapi-forge-java
+          cd openapi-forge-rust
           npm test
