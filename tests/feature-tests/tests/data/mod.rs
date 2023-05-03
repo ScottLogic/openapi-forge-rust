@@ -55,8 +55,8 @@ pub struct FnSignatureInformation {
 #[derive(Debug, Clone)]
 pub enum ParamWithType {
     None,
-    Number(i32),
-    OptionalNumber(ROption<i32>),
+    Number(i64),
+    OptionalNumber(ROption<i64>),
     String(RString),
     OptionalString(ROption<RString>),
     OptionalDouble(ROption<f64>),
@@ -67,8 +67,8 @@ impl ParamWithType {
     pub fn from(el: Option<&str>, el_type: &str) -> anyhow::Result<ParamWithType> {
         if let Some(el) = el {
             let optional_flag = el_type.contains("Option<");
-            if el_type.contains("i32") {
-                let el = el.parse::<i32>().context("parse fail")?;
+            if el_type.contains("i64") {
+                let el = el.parse::<i64>().context("parse fail")?;
                 match optional_flag {
                     true => Ok(ParamWithType::OptionalNumber(ROption::RSome(el))),
                     false => Ok(ParamWithType::Number(el)),

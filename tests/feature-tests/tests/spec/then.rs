@@ -2,6 +2,7 @@ use std::{ collections::HashSet, path::Path, str::FromStr };
 
 use abi_stable::std_types::RString;
 use anyhow::{ bail, Context, Result };
+use chrono::{ naive::NaiveDate, DateTime, Utc };
 use convert_case::Casing;
 use cucumber::then;
 use serde_json::{ json, Value };
@@ -87,17 +88,33 @@ async fn response_should_have_property(
 ) -> Result<()> {
     if let Some(last_response) = &w.last_object_response {
         let serialized = &last_response.1;
-        let dynamic_json = serde_json::from_str::<Value>(&serialized)?;
-        let data_container = dynamic_json.get("data").context("cannot access data")?;
+        let mut dynamic_json = serde_json::from_str::<Value>(&serialized)?;
+        let data_container = dynamic_json.get_mut("data").context("cannot access data")?;
         let actual_value = data_container
-            .get(&property)
-            .context(format!("cannot access property {}", property))?;
-        match expected_value.parse::<i32>() {
-            Ok(nb) => {
-                assert_eq!(&json!(nb), actual_value);
+            .get_mut(&property)
+            .context(format!("cannot access property {}", property))?
+            .take();
+        let possible_date_time = DateTime::parse_from_rfc3339(&expected_value);
+        let possible_naive_date = NaiveDate::parse_from_str(&expected_value, "%Y-%m-%d");
+        let possible_nb = expected_value.parse::<i64>();
+        match (possible_date_time, possible_naive_date, possible_nb) {
+            (Ok(date_time), Err(_), Err(_)) => {
+                let actual_date_time = serde_json::from_value::<DateTime<Utc>>(actual_value)?;
+                assert_eq!(date_time, actual_date_time);
             }
-            Err(_) => {
-                assert_eq!(&json!(expected_value), actual_value);
+            (Err(_), Ok(naive_date), Err(_)) => {
+                let actual_date = serde_json::from_value::<NaiveDate>(actual_value)?;
+                assert_eq!(naive_date, actual_date);
+            }
+            (Err(_), Err(_), Ok(nb)) => {
+                let actual_nb = actual_value.as_i64().context("cannot convert actual value to nb")?;
+                assert_eq!(nb, actual_nb);
+            }
+            (Err(_), Err(_), Err(_)) => {
+                assert_eq!(json!(expected_value), actual_value);
+            }
+            _ => {
+                bail!("Other cases are not possible");
             }
         }
     } else {
@@ -132,7 +149,7 @@ async fn object_should_have_type(
         .context("cannot get type from the map")?;
     match &expected_type[..] {
         "number" => {
-            assert!(actual_type.contains("i32"));
+            assert!(actual_type.contains("i64"));
         }
         "string" => {
             assert!(actual_type.contains("String"));

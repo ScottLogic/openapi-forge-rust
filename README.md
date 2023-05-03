@@ -2,14 +2,12 @@
 
 This repository is the Rust generator for the [OpenAPI Forge](https://github.com/ScottLogic/openapi-forge), see that repository for usage instructions:
 
-https://github.com/ScottLogic/openapi-forge
-
 ## Configuration
 
 OpenAPI Forge is opinionated in its approach, we don't provide a vast range of configuration options, just the essentials! You can list the generator-specific configuration options by running the `generate-options` command as follows:
 
 ```
-% openapi-forge generator-options openapi-forge-java
+% openapi-forge generator-options openapi-forge-rust
 This generator has a number of additional options which can be supplied when executing the 'forge' command.
 
 Options:
@@ -20,7 +18,7 @@ Options:
 
 ### Running
 
-To run this generator, you also need to have [OpenAPI Forge] installed, or the repository checked out. Assuming you have it installed as a global module, you can run this generator as follows:
+To run this generator, you also need to have [OpenAPI Forge](https://github.com/ScottLogic/openapi-forge) installed, or the repository checked out. Assuming you have it installed as a global module, you can run this generator as follows:
 
 ```
 $ openapi-forge forge
@@ -30,6 +28,27 @@ $ openapi-forge forge
 ```
 
 This generates an API from the Pet Store swagger definition, using the generator within the current folder (`.`), outputting the results to the `api` folder.
+
+Afterwards, by modiyfing the main.rs in the generated api project, we can fetch every available pet and print them into stdout.
+
+```rust
+use anyhow::Result;
+use api_client::api_client_pet::ApiClientPet;
+use config::Configuration;
+use reqwest::Client;
+
+#[tokio::main]
+pub async fn main() -> Result<()> {
+  let config = Configuration::new("https://petstore3.swagger.io");
+  let client = Client::new();
+  let api_client_pet = ApiClientPet::new(config, client);
+  let response = api_client_pet.find_pets_by_status(
+    Some("available".into())
+  ).await?;
+  dbg!(&response);
+  Ok(())
+}
+```
 
 ### Testing
 
