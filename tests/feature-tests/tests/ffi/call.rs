@@ -9,33 +9,34 @@ use crate::{ data::{ ApiClient, Client, Configuration, ForgeResponse }, ForgeWor
 pub struct FFICaller;
 
 impl FFICaller {
-    pub fn get_generated_library(hash: u64) -> Result<Library> {
-        // SAFETY
-        // This call should be always followed after the generated api is compiled.
+    pub fn get_generated_library(library_suffix: u64) -> Result<Library> {
+        // SAFETY: using library suffix ensures loading correct library
         unsafe {
-            let lib = Library::new(crate::util::get_generated_shared_object_path!(hash))?;
+            let lib = Library::new(crate::util::get_generated_shared_object_path!(library_suffix))?;
             Ok(lib)
         }
     }
 
     pub fn get_config(w: &mut ForgeWorld) -> Result<Box<Configuration>> {
-        unsafe {
-            if let Some(library) = &w.library {
+        if let Some(library) = &w.library {
+            // SAFETY: using correct library ensure method's existance and correctness.
+            unsafe {
                 let func: Symbol<extern "C" fn(RString) -> Box<Configuration>> = library.get(
                     b"c_config_new"
                 )?;
                 let c = func(format!("http://127.0.0.1:{}", PORT).into());
                 Ok(c)
-            } else {
-                bail!("get_config")
             }
+        } else {
+            bail!("get_config")
         }
     }
 
     pub fn run_config_idx_change(w: &mut ForgeWorld, idx: u8) -> Result<()> {
-        unsafe {
-            if let Some(library) = &w.library {
-                let config = w.config.take();
+        if let Some(library) = &w.library {
+            let config = w.config.take();
+            // SAFETY: using correct library ensure method's existance and correctness.
+            unsafe {
                 let func: Symbol<
                     extern "C" fn(Box<Configuration>, u8) -> Box<Configuration>
                 > = library.get(b"c_config_select_server_index")?;
@@ -46,32 +47,34 @@ impl FFICaller {
                 } else {
                     bail!("run_config_idx_change cfg")
                 }
-            } else {
-                bail!("run_config_idx_change")
             }
+        } else {
+            bail!("run_config_idx_change")
         }
     }
 
     pub fn get_http_client(w: &mut ForgeWorld) -> Result<Box<Client>> {
-        unsafe {
-            if let Some(library) = &w.library {
+        if let Some(library) = &w.library {
+            // SAFETY: using correct library ensure method's existance and correctness.
+            unsafe {
                 let func: Symbol<extern "C" fn() -> Box<Client>> =
                     library.get(b"c_reqwest_client_new")?;
                 let c = func();
                 Ok(c)
-            } else {
-                bail!("get_http_client")
             }
+        } else {
+            bail!("get_http_client")
         }
     }
 
     pub fn get_api_client(w: &mut ForgeWorld, client_name: &str) -> Result<Box<ApiClient>> {
-        unsafe {
-            let config = w.config.take();
-            let client: Option<Box<Client>> = w.http_client.take();
-            let c_method = format!("c_{}_new", client_name);
-            let c_method_bytes = c_method.as_bytes();
-            if let Some(library) = &w.library {
+        let config = w.config.take();
+        let client: Option<Box<Client>> = w.http_client.take();
+        let c_method = format!("c_{}_new", client_name);
+        let c_method_bytes = c_method.as_bytes();
+        if let Some(library) = &w.library {
+            // SAFETY: using correct library ensure method's existance and correctness.
+            unsafe {
                 let func: Symbol<
                     extern "C" fn(Box<Configuration>, Box<Client>) -> Box<ApiClient>
                 > = library.get(c_method_bytes)?;
@@ -82,29 +85,30 @@ impl FFICaller {
                     }
                     _ => bail!("get_api_client cfg"),
                 }
-            } else {
-                bail!("get_api_client")
             }
+        } else {
+            bail!("get_api_client")
         }
     }
 
     // if api client is not used and we will be generating a new one, don't drop the old one here
     // ask generated library to drop it - only the library knows the memory layout.
     pub fn drop_api_client_if_exists(w: &mut ForgeWorld, client_name: &str) -> Result<()> {
-        unsafe {
-            let api_client = w.api_client.take();
-            let c_method = format!("c_{}_drop", client_name);
-            let c_method_bytes = c_method.as_bytes();
-            if let Some(api_client) = api_client {
-                if let Some(library) = &w.library {
+        let api_client = w.api_client.take();
+        let c_method = format!("c_{}_drop", client_name);
+        let c_method_bytes = c_method.as_bytes();
+        if let Some(api_client) = api_client {
+            if let Some(library) = &w.library {
+                // SAFETY: using correct library ensure method's existance and correctness.
+                unsafe {
                     let func: Symbol<extern "C" fn(Box<ApiClient>)> = library.get(c_method_bytes)?;
                     func(api_client);
-                } else {
-                    bail!("drop_api_client_if_exists");
                 }
+            } else {
+                bail!("drop_api_client_if_exists");
             }
-            Ok(())
         }
+        Ok(())
     }
 
     pub fn get_fn_signature(
@@ -112,17 +116,18 @@ impl FFICaller {
         client_name: &str,
         method_name: &str
     ) -> Result<FnSignatureInformation> {
-        unsafe {
-            let c_method = format!("c_{}_{}_signature", client_name, method_name);
-            let c_method_bytes = c_method.as_bytes();
-            if let Some(library) = &w.library {
+        let c_method = format!("c_{}_{}_signature", client_name, method_name);
+        let c_method_bytes = c_method.as_bytes();
+        if let Some(library) = &w.library {
+            // SAFETY: using correct library ensure method's existance and correctness.
+            unsafe {
                 let func: Symbol<extern "C" fn() -> FnSignatureInformation> =
                     library.get(c_method_bytes)?;
                 let info = func();
                 Ok(info)
-            } else {
-                bail!("get_fn_signature")
             }
+        } else {
+            bail!("get_fn_signature")
         }
     }
 
@@ -132,18 +137,19 @@ impl FFICaller {
         method_name: &str,
         last_result: Box<ForgeResponse<T>>
     ) -> Result<FFISafeTuple<T>> {
-        unsafe {
-            let c_method = format!("c_{}_{}_serialize", client_name, method_name);
-            let c_method_bytes = c_method.as_bytes();
-            if let Some(library) = &w.library {
+        let c_method = format!("c_{}_{}_serialize", client_name, method_name);
+        let c_method_bytes = c_method.as_bytes();
+        if let Some(library) = &w.library {
+            // SAFETY: using correct library ensure method's existance and correctness.
+            unsafe {
                 let func: Symbol<
                     extern "C" fn(Box<ForgeResponse<T>>) -> FFISafeTuple<T>
                 > = library.get(c_method_bytes)?;
                 let ret = func(last_result);
                 Ok(ret)
-            } else {
-                bail!("run_method_no_params_with_return")
             }
+        } else {
+            bail!("run_method_no_params_with_return")
         }
     }
 
@@ -153,18 +159,19 @@ impl FFICaller {
         method_name: &str,
         last_result: Box<ForgeResponse<T>>
     ) -> Result<Box<T>> {
-        unsafe {
-            let c_method = format!("c_{}_{}_to_inner", api_client_name, method_name);
-            let c_method_bytes = c_method.as_bytes();
-            if let Some(library) = &w.library {
+        let c_method = format!("c_{}_{}_to_inner", api_client_name, method_name);
+        let c_method_bytes = c_method.as_bytes();
+        if let Some(library) = &w.library {
+            // SAFETY: using correct library ensure method's existance and correctness.
+            unsafe {
                 let func: Symbol<extern "C" fn(Box<ForgeResponse<T>>) -> Box<T>> = library.get(
                     c_method_bytes
                 )?;
                 let ret = func(last_result);
                 Ok(ret)
-            } else {
-                bail!("run_method_no_params_with_return")
             }
+        } else {
+            bail!("run_method_no_params_with_return")
         }
     }
 
@@ -173,10 +180,11 @@ impl FFICaller {
         api_client_name: &str,
         method_name: &str
     ) -> Result<Box<ForgeResponse<T>>> {
-        unsafe {
-            let c_method = format!("c_{}_{}", api_client_name, method_name);
-            let c_method_bytes = c_method.as_bytes();
-            if let Some(library) = &w.library {
+        let c_method = format!("c_{}_{}", api_client_name, method_name);
+        let c_method_bytes = c_method.as_bytes();
+        if let Some(library) = &w.library {
+            // SAFETY: using correct library ensure method's existance and correctness.
+            unsafe {
                 let func: Symbol<
                     extern "C" fn(Box<ApiClient>) -> Box<ForgeResponse<T>>
                 > = library.get(c_method_bytes)?;
@@ -187,9 +195,9 @@ impl FFICaller {
                 } else {
                     bail!("run_method_no_params_with_return api_client")
                 }
-            } else {
-                bail!("run_method_no_params_with_return")
             }
+        } else {
+            bail!("run_method_no_params_with_return")
         }
     }
 
@@ -199,10 +207,11 @@ impl FFICaller {
         method_name: &str,
         arg_1: T
     ) -> Result<Box<ForgeResponse<U>>> {
-        unsafe {
-            let c_method = format!("c_{}_{}", api_client_name, method_name);
-            let c_method_bytes = c_method.as_bytes();
-            if let Some(library) = &w.library {
+        let c_method = format!("c_{}_{}", api_client_name, method_name);
+        let c_method_bytes = c_method.as_bytes();
+        if let Some(library) = &w.library {
+            // SAFETY: using correct library ensure method's existance and correctness.
+            unsafe {
                 let func: Symbol<
                     extern "C" fn(Box<ApiClient>, T) -> Box<ForgeResponse<U>>
                 > = library.get(c_method_bytes)?;
@@ -213,9 +222,9 @@ impl FFICaller {
                 } else {
                     bail!("run_method_one_param api_client")
                 }
-            } else {
-                bail!("run_method_one_param")
             }
+        } else {
+            bail!("run_method_one_param")
         }
     }
 
@@ -225,10 +234,11 @@ impl FFICaller {
         method_name: &str,
         arg_1: RString
     ) -> Result<Box<ForgeResponse<T>>> {
-        unsafe {
-            let c_method = format!("c_{}_{}_serialized_params", api_client_name, method_name);
-            let c_method_bytes = c_method.as_bytes();
-            if let Some(library) = &w.library {
+        let c_method = format!("c_{}_{}_serialized_params", api_client_name, method_name);
+        let c_method_bytes = c_method.as_bytes();
+        if let Some(library) = &w.library {
+            // SAFETY: using correct library ensure method's existance and correctness.
+            unsafe {
                 let func: Symbol<
                     extern "C" fn(Box<ApiClient>, RString) -> Box<ForgeResponse<T>>
                 > = library.get(c_method_bytes)?;
@@ -239,9 +249,9 @@ impl FFICaller {
                 } else {
                     bail!("run_method_one_serialized_param api_client")
                 }
-            } else {
-                bail!("run_method_one_serialized_param")
             }
+        } else {
+            bail!("run_method_one_serialized_param")
         }
     }
 
@@ -252,10 +262,11 @@ impl FFICaller {
         arg_1: T,
         arg_2: U
     ) -> Result<Box<ForgeResponse<V>>> {
-        unsafe {
-            let c_method = format!("c_{}_{}", api_client_name, method_name);
-            let c_method_bytes = c_method.as_bytes();
-            if let Some(library) = &w.library {
+        let c_method = format!("c_{}_{}", api_client_name, method_name);
+        let c_method_bytes = c_method.as_bytes();
+        if let Some(library) = &w.library {
+            // SAFETY: using correct library ensure method's existance and correctness.
+            unsafe {
                 let func: Symbol<
                     extern "C" fn(Box<ApiClient>, T, U) -> Box<ForgeResponse<V>>
                 > = library.get(c_method_bytes)?;
@@ -266,9 +277,9 @@ impl FFICaller {
                 } else {
                     bail!("run_method_two_params api_client")
                 }
-            } else {
-                bail!("run_method_two_params")
             }
+        } else {
+            bail!("run_method_two_params")
         }
     }
 
@@ -280,10 +291,11 @@ impl FFICaller {
         arg_2: U,
         arg_3: V
     ) -> Result<Box<ForgeResponse<W>>> {
-        unsafe {
-            let c_method = format!("c_{}_{}", api_client_name, method_name);
-            let c_method_bytes = c_method.as_bytes();
-            if let Some(library) = &w.library {
+        let c_method = format!("c_{}_{}", api_client_name, method_name);
+        let c_method_bytes = c_method.as_bytes();
+        if let Some(library) = &w.library {
+            // SAFETY: using correct library ensure method's existance and correctness.
+            unsafe {
                 let func: Symbol<
                     extern "C" fn(Box<ApiClient>, T, U, V) -> Box<ForgeResponse<W>>
                 > = library.get(c_method_bytes)?;
@@ -294,9 +306,9 @@ impl FFICaller {
                 } else {
                     bail!("run_method_three_params api_client")
                 }
-            } else {
-                bail!("run_method_three_params")
             }
+        } else {
+            bail!("run_method_three_params")
         }
     }
 
@@ -306,15 +318,16 @@ impl FFICaller {
     ) -> Result<Box<ObjectTypeInformation>> {
         let c_method = format!("c_{}_type_information", struct_snake_case);
         let c_method_bytes = c_method.as_bytes();
-        unsafe {
-            if let Some(library) = &w.library {
+        if let Some(library) = &w.library {
+            // SAFETY: using correct library ensure method's existance and correctness.
+            unsafe {
                 let func: Symbol<extern "C" fn() -> Box<ObjectTypeInformation>> =
                     library.get(c_method_bytes)?;
                 let info = func();
                 Ok(info)
-            } else {
-                bail!("get_type_information")
             }
+        } else {
+            bail!("get_type_information")
         }
     }
 
@@ -325,11 +338,12 @@ impl FFICaller {
     ) -> Result<()> {
         let c_method = format!("c_{}_{}", api_client_name, method_name);
         let c_method_bytes = c_method.as_bytes();
+        // SAFETY: using correct library ensure method's existance and correctness.
         unsafe {
             if let Some(library) = &w.library {
                 let _func: Symbol<extern "C" fn(Box<ApiClient>)> = library.get(c_method_bytes)?;
             } else {
-                bail!("Cannot load library");
+                bail!("Cannot find function in library");
             }
         }
         Ok(())

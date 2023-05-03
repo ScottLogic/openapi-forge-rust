@@ -12,9 +12,8 @@ use cucumber::World;
 use data::*;
 use ffi::call::FFICaller;
 use libloading::Library;
-use mock::{ SERVER, ForgeMockServer };
+use mock::ForgeMockServer;
 
-use crate::mock::PORT;
 use crate::util::FEATURES;
 
 #[derive(Debug, World)]
@@ -86,7 +85,7 @@ impl ForgeWorld {
 async fn main() -> Result<()> {
     util::create_project_folders().await?;
     util::copy_feature_files().await?;
-    ForgeMockServer::init_mock_server(PORT).await?;
+    ForgeMockServer::init_mock_server().await?;
     ForgeWorld::cucumber().run(FEATURES).await;
     util::clean_up_all().await?;
     Ok(())

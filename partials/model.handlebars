@@ -7,6 +7,7 @@
 {{#ifEquals @root.cabi "true"}}
 #[repr(C)]
 {{/ifEquals}}
+#[serde(rename_all = "camelCase")]
 pub struct {{toClassName @key}} 
 {
   {{#each properties}}
@@ -25,9 +26,6 @@ pub struct {{toClassName @key}}
     {{~else~}}
     {{setVar "is_required" false}}
     {{~/ifContains~}}
-    {{#ifNotEquals (toRustParamName @key) @key }}
-    #[serde(rename = "{{@key}}")]
-    {{/ifNotEquals}}
     pub {{toRustParamName @key}}: {{{safeTypeConvert this @root.is_required}}},
   {{/each}}
 }

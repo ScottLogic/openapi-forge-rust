@@ -16,13 +16,10 @@ use crate::{
 async fn api_specification_generation(w: &mut ForgeWorld, step: &Step) -> Result<()> {
     // This doesn't generate api client
     // schema
-    if let Some(spec) = step.docstring() {
-        let hash = hash_an_object(spec);
-        w.library_name_modifier = Some(hash);
-        write_schema_to_file(spec, w.library_name_modifier.context("library modifier")?).await?;
-    } else {
-        bail!("API spec not found");
-    }
+    let spec = step.docstring().context("API spec not found")?;
+    let spec_hash = hash_an_object(spec);
+    w.library_name_modifier = Some(spec_hash);
+    write_schema_to_file(spec, w.library_name_modifier.context("library modifier")?).await?;
     // forge + compile + set
     forge(w.library_name_modifier.context("library modifier")?).await?;
     compile_generated_api(w.library_name_modifier.context("library modifier")?).await?;
