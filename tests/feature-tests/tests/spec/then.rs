@@ -8,62 +8,63 @@ use serde_json::{ json, Value };
 use url::Url;
 use wiremock::http::{ HeaderName, Method };
 
-use crate::{ ffi::call::FFICaller, ForgeWorld };
-
-use crate::SERVER;
+use crate::{ ffi::call::FFICaller, mock::ForgeMockServer, ForgeWorld };
 
 #[then(expr = "the requested URL should be {word}")]
 async fn requested_url(_w: &mut ForgeWorld, url: String) -> Result<()> {
-    if let Some(server) = SERVER.get() {
-        if let Some(req) = server.received_requests().await {
-            assert!(req.len() > 0);
-            let last_req = &req[req.len() - 1];
-            let expected_url = Url::parse(&url)?;
-            let actual_url = &last_req.url;
-            // only check the path + query
-            let expected_path = Path::new(expected_url.path());
-            let actual_path = Path::new(actual_url.path());
-            assert_eq!(expected_path, actual_path);
-            let expected_query = expected_url.query_pairs().collect::<HashSet<_>>();
-            let actual_query = actual_url.query_pairs().collect::<HashSet<_>>();
-            assert_eq!(expected_query, actual_query);
-        }
+    let server = ForgeMockServer::get_server()?;
+    if let Some(req) = server.received_requests().await {
+        assert!(req.len() > 0);
+        let last_req = &req[req.len() - 1];
+        let expected_url = Url::parse(&url)?;
+        let actual_url = &last_req.url;
+        // only check the path + query
+        let expected_path = Path::new(expected_url.path());
+        let actual_path = Path::new(actual_url.path());
+        assert_eq!(expected_path, actual_path);
+        let expected_query = expected_url.query_pairs().collect::<HashSet<_>>();
+        let actual_query = actual_url.query_pairs().collect::<HashSet<_>>();
+        assert_eq!(expected_query, actual_query);
+    } else {
+        bail!("Problem with received requests");
     }
     Ok(())
 }
 
 #[then(expr = "the request method should be of type {word}")]
 async fn requested_type_should_be(_w: &mut ForgeWorld, request_type: String) -> Result<()> {
-    if let Some(server) = SERVER.get() {
-        if let Some(req) = server.received_requests().await {
-            assert!(req.len() > 0);
-            let last_req = &req[req.len() - 1];
-            let expected_method = Method::from_str(&request_type);
-            match expected_method {
-                Ok(method) => {
-                    assert_eq!(last_req.method, method);
-                }
-                Err(e) => bail!(e),
+    let server = ForgeMockServer::get_server()?;
+    if let Some(req) = server.received_requests().await {
+        assert!(req.len() > 0);
+        let last_req = &req[req.len() - 1];
+        let expected_method = Method::from_str(&request_type);
+        match expected_method {
+            Ok(method) => {
+                assert_eq!(last_req.method, method);
             }
+            Err(e) => bail!(e),
         }
+    } else {
+        bail!("Problem with received requests");
     }
     Ok(())
 }
 
 #[then(expr = "the request should have a header property with value {word}")]
 async fn request_should_have_header(_w: &mut ForgeWorld, value: String) -> Result<()> {
-    if let Some(server) = SERVER.get() {
-        if let Some(req) = server.received_requests().await {
-            assert!(req.len() > 0);
-            let last_req = &req[req.len() - 1];
-            let headers = &last_req.headers;
-            let header_values = headers
-                .values()
-                .flatten()
-                .map(|h| h.as_str())
-                .collect::<Vec<_>>();
-            assert!(header_values.contains(&&value[..]));
-        }
+    let server = ForgeMockServer::get_server()?;
+    if let Some(req) = server.received_requests().await {
+        assert!(req.len() > 0);
+        let last_req = &req[req.len() - 1];
+        let headers = &last_req.headers;
+        let header_values = headers
+            .values()
+            .flatten()
+            .map(|h| h.as_str())
+            .collect::<Vec<_>>();
+        assert!(header_values.contains(&&value[..]));
+    } else {
+        bail!("Problem with received requests");
     }
     Ok(())
 }
@@ -157,28 +158,30 @@ async fn object_should_have_type(
 
 #[then(regex = r"the request should have a body with value (\S+)")]
 async fn request_should_have_body(_w: &mut ForgeWorld, body: String) -> Result<()> {
-    if let Some(server) = SERVER.get() {
-        if let Some(req) = server.received_requests().await {
-            assert!(req.len() > 0);
-            let last_req = &req[req.len() - 1];
-            assert_eq!(last_req.body, body.as_bytes());
-        }
+    let server = ForgeMockServer::get_server()?;
+    if let Some(req) = server.received_requests().await {
+        assert!(req.len() > 0);
+        let last_req = &req[req.len() - 1];
+        assert_eq!(last_req.body, body.as_bytes());
+    } else {
+        bail!("Problem with received requests");
     }
     Ok(())
 }
 
 #[then(regex = r"the request header should have a cookie property with value (\S+)")]
 async fn request_header_should_have_cookie(_w: &mut ForgeWorld, cookie_str: String) -> Result<()> {
-    if let Some(server) = SERVER.get() {
-        if let Some(req) = server.received_requests().await {
-            assert!(req.len() > 0);
-            let last_req = &req[req.len() - 1];
-            if let Some(cookie_value) = last_req.headers.get(&HeaderName::from("cookie")) {
-                assert!(cookie_value.iter().any(|h| *h == cookie_str));
-            } else {
-                bail!("no cookie");
-            }
+    let server = ForgeMockServer::get_server()?;
+    if let Some(req) = server.received_requests().await {
+        assert!(req.len() > 0);
+        let last_req = &req[req.len() - 1];
+        if let Some(cookie_value) = last_req.headers.get(&HeaderName::from("cookie")) {
+            assert!(cookie_value.iter().any(|h| *h == cookie_str));
+        } else {
+            bail!("no cookie");
         }
+    } else {
+        bail!("Problem with received requests");
     }
     Ok(())
 }
@@ -201,7 +204,7 @@ async fn response_should_be_an_array(w: &mut ForgeWorld) -> Result<()> {
         let data = value.get("data").context("data contrainer")?;
         assert!(data.is_array());
     } else {
-        bail!("np last response");
+        bail!("no last response");
     }
     Ok(())
 }
@@ -222,6 +225,8 @@ async fn response_should_have_header(
             .as_str()
             .context("cannot str")?;
         assert_eq!(actual, &value);
+    } else {
+        bail!("no last response");
     }
     Ok(())
 }
@@ -232,6 +237,8 @@ async fn response_should_be_null(w: &mut ForgeWorld) -> Result<()> {
         let value = serde_json::from_str::<Value>(&last_response.1)?;
         let data = value.get("data").context("no data")?;
         assert!(data.is_null());
+    } else {
+        bail!("No last response");
     }
     Ok(())
 }

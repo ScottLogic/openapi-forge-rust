@@ -73,7 +73,6 @@ impl ApiClient{{_tag.name}} {
             {{/if ~}}
         {{/each}}
         let url = self.config.get_base_address() + {{{setPathParameters @root.path _sortedParameters @root.cabi}}};
-        // dbg!(&url);
         let request_uri = Url::parse(&url)?;
         {{#if (queryParametersExist _sortedParameters)}}
         {{createQueryStringSnippet _sortedParameters @root.cabi}}
@@ -93,7 +92,6 @@ impl ApiClient{{_tag.name}} {
         {{/if}}
         .send()
         {{#ifNotEquals @root.cabi "true"}}.await{{/ifNotEquals}}?;
-        // dbg!(&response);
         let status_code = response.status().as_u16();
         let headers = response
             .headers()
