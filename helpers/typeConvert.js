@@ -1,9 +1,11 @@
 const toSafeName = require("./toClassName");
 
 const fromFormat = (propFormat, is_required) => {
+  const naiveDate = "chrono::naive::NaiveDate";
+  const dateTime = "chrono::DateTime<chrono::Utc>";
   switch (propFormat) {
     case "int32":
-      return is_required ? "i64" : "Option<i64>";
+      return is_required ? "i32" : "Option<i32>";
     case "int64":
       return is_required ? "i64" : "Option<i64>";
     case "float":
@@ -11,15 +13,15 @@ const fromFormat = (propFormat, is_required) => {
     case "double":
       return is_required ? "f64" : "Option<f64>";
     case "date":
-      return "chrono::naive::NaiveDate";
+      return is_required ? naiveDate : `Option<${naiveDate}>`;
     case "date-time":
-      return "chrono::DateTime<chrono::Utc>";
+      return is_required ? dateTime : `Option<${dateTime}>`;
     case "byte":
     case "binary":
     case "string":
-      return "String";
+      return is_required ? "String" : "Option<String>";
     default:
-      return is_required ? "Void" : "void";
+      return is_required ? "()" : "Option<()>";
   }
 };
 
