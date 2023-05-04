@@ -11,7 +11,7 @@ const fromFormat = (propFormat, is_required) => {
     case "double":
       return is_required ? "f64" : "Option<f64>";
     case "date":
-      const naiveDate ="chrono::naive::NaiveDate";
+      const naiveDate = "chrono::naive::NaiveDate";
       return is_required ? naiveDate : `Option<${naiveDate}>`;
     case "date-time":
       const dateTime = "chrono::DateTime<chrono::Utc>";
