@@ -69,7 +69,7 @@ impl ApiClient{{_tag.name}} {
         {{#each _sortedParameters}}
             {{#if (hasDefault schema)}}
             // Set default value for {{toRustParamName name}}
-            let {{toRustParamName name ~}} = if ({{toRustParamName name ~}}.is_none()) { {{getSome @root.cabi}} ({{{quoteIfString schema.default}}}.into()) } else { {{toRustParamName name ~}} }; 
+            let {{toRustParamName name ~}} = if {{toRustParamName name ~}}.is_none() { {{getSome @root.cabi}} ({{{quoteIfString schema.default}}}.into()) } else { {{toRustParamName name ~}} }; 
             {{/if ~}}
         {{/each}}
         let url = self.config.get_base_address() + {{{setPathParameters @root.path _sortedParameters @root.cabi}}};

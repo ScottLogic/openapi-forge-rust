@@ -8,16 +8,19 @@ const isRequired = (typeDef) => {
   return typeof typeDef._required !== "undefined";
 };
 
-const pushToQueryParam = (name, value) =>
-  `query_params.push(("${name}".to_string().into(), ${toRustParamName(
+const pushToQueryParam = (name, value, is_cabi_str = false) => {
+  const optionalToString = is_cabi_str === "true" ? ".to_string()" : "";
+  const optionalInto = is_cabi_str === "true" ? ".into()" : "";
+  return `query_params.push(("${name}"${optionalToString}.into(), ${toRustParamName(
     value
-  )}.to_string().into()));`;
+  )}${optionalToString}${optionalInto}));`;
+};
 
-const serialiseArrayParam = (param) => {
+const serialiseArrayParam = (param, is_cabi = false) => {
   const safeParamName = toParamName(param.name);
   const serialisedParam =
     `for el in ${safeParamName} {` +
-    pushToQueryParam(safeParamName, `el`) +
+    pushToQueryParam(safeParamName, `el`, is_cabi) +
     `}`;
   return serialisedParam;
 };
@@ -34,10 +37,10 @@ const serialiseObjectParam = (param, is_required = false, is_cabi = false) => {
         `(${toRustParamName(propName)}) = &${safeParamName}.${toRustParamName(
           propName
         )} { ` +
-        pushToQueryParam(propName, propName) +
+        pushToQueryParam(propName, propName, is_cabi) +
         ` }`;
     } else {
-      res = pushToQueryParam(propName, `${safeParamName}.${propName}`);
+      res = pushToQueryParam(propName, `${safeParamName}.${propName}`, is_cabi);
     }
 
     if (!is_required) {
@@ -55,7 +58,7 @@ const serialiseObjectParam = (param, is_required = false, is_cabi = false) => {
 
 const serialisePrimitive = (param, is_required = false, is_cabi = false) => {
   const safeParamName = toParamName(param.name);
-  const inner = pushToQueryParam(safeParamName, safeParamName);
+  const inner = pushToQueryParam(safeParamName, safeParamName, is_cabi);
   if (!is_required) {
     return (
       `if let ` +
@@ -82,7 +85,7 @@ const createQueryStringSnippet = (params, is_cabi = false) => {
     let serialisedQueryParam;
     switch (queryParam.schema.type) {
       case "array":
-        serialisedQueryParam = serialiseArrayParam(queryParam);
+        serialisedQueryParam = serialiseArrayParam(queryParam, is_cabi);
         break;
       case "object":
         serialisedQueryParam = serialiseObjectParam(
