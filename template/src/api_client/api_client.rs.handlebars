@@ -59,12 +59,12 @@ impl ApiClient{{_tag.name}} {
         &self, 
         {{~#each _sortedParameters ~}}
             {{#ifEquals required true}}
-                {{toRustParamName name ~}}: {{~safeTypeConvert schema true}},
+                {{toRustParamName name ~}}: {{~safeTypeConvert schema true @root.cabi}},
             {{else}}
-                {{toRustParamName name ~}}: {{~safeTypeConvert schema false}},
+                {{toRustParamName name ~}}: {{~safeTypeConvert schema false @root.cabi}},
             {{/ifEquals}}
         {{~/each ~}}
-    ) -> Result<ForgeResponse<{{safeTypeConvert _response.schema true}}>>
+    ) -> Result<ForgeResponse<{{safeTypeConvert _response.schema true @root.cabi}}>>
     {
         {{#each _sortedParameters}}
             {{#if (hasDefault schema)}}
@@ -122,12 +122,12 @@ impl ApiClient{{_tag.name}} {
     pub fn {{toRustParamName operationId}} (
         {{~#each _sortedParameters ~}}
             {{#ifEquals _response.required true}}
-                {{toRustParamName name ~}}: {{~safeTypeConvert schema true}},
+                {{toRustParamName name ~}}: {{~safeTypeConvert schema true @root.cabi}},
             {{else}}
-                {{toRustParamName name ~}}: {{~safeTypeConvert schema false}},
+                {{toRustParamName name ~}}: {{~safeTypeConvert schema false @root.cabi}},
             {{/ifEquals}}
         {{~/each ~}}
-    ) -> Result<ForgeResponse<{{safeTypeConvert _response.schema true}}>>
+    ) -> Result<ForgeResponse<{{safeTypeConvert _response.schema true @root.cabi}}>>
     {
         panic!("Operation `{{toRustParamName operationId}}` most likely does not support json encoded requests which are not supported by openapi forge.", );
     }    
@@ -162,12 +162,12 @@ pub extern "C" fn c_api_client{{toRustParamName _tag.name}}_{{toRustParamName op
     api_client: Box<ApiClient{{_tag.name}}>,
     {{~#each _sortedParameters ~}}
         {{#ifEquals required true}}
-            {{toRustParamName name ~}}: {{~safeTypeConvert schema true}},
+            {{toRustParamName name ~}}: {{~safeTypeConvert schema true @root.cabi}},
         {{else}}
-            {{toRustParamName name ~}}: {{~safeTypeConvert schema false}},
+            {{toRustParamName name ~}}: {{~safeTypeConvert schema false @root.cabi}},
         {{/ifEquals}}
     {{~/each ~}}
-) -> Box<ForgeResponse<{{safeTypeConvert _response.schema true}}>> {
+) -> Box<ForgeResponse<{{safeTypeConvert _response.schema true @root.cabi}}>> {
         Box::new(api_client.{{toRustParamName operationId}}(
         {{~#each _sortedParameters ~}}
             {{#ifEquals required true}}
@@ -182,15 +182,15 @@ pub extern "C" fn c_api_client{{toRustParamName _tag.name}}_{{toRustParamName op
 #[no_mangle]
 pub extern "C" fn c_api_client{{toRustParamName _tag.name}}_{{toRustParamName operationId}}_serialize ( 
     o: Box<ForgeResponse<{{safeTypeConvert _response.schema true}}>>
-) -> FFISafeTuple<{{safeTypeConvert _response.schema true}}> {
+) -> FFISafeTuple<{{safeTypeConvert _response.schema true @root.cabi}}> {
     let serialized = serde_json::to_string(&o).unwrap();
-    FFISafeTuple::<{{safeTypeConvert _response.schema true}}>(o, serialized.into())
+    FFISafeTuple::<{{safeTypeConvert _response.schema true @root.cabi}}>(o, serialized.into())
 }
 
 #[no_mangle]
 pub extern "C" fn c_api_client{{toRustParamName _tag.name}}_{{toRustParamName operationId}}_to_inner (
     o: Box<ForgeResponse<{{safeTypeConvert _response.schema true}}>>
-) -> Box<{{safeTypeConvert _response.schema true}}> {
+) -> Box<{{safeTypeConvert _response.schema true @root.cabi}}> {
     Box::new(o.data)
 }
 
@@ -200,7 +200,7 @@ pub extern "C" fn c_api_client{{toRustParamName _tag.name}}_{{toRustParamName op
     {{~#each _sortedParameters ~}}
     {{toRustParamName name ~}}: String,
     {{~/each ~}}
-) -> Box<ForgeResponse<{{safeTypeConvert _response.schema true}}>> {
+) -> Box<ForgeResponse<{{safeTypeConvert _response.schema true @root.cabi}}>> {
     c_api_client{{toRustParamName _tag.name}}_{{toRustParamName operationId}}(
         api_client,
         {{~#each _sortedParameters ~}}
@@ -218,9 +218,9 @@ pub extern "C" fn c_api_client{{toRustParamName _tag.name}}_{{toRustParamName op
         {{else}}
             {{setVar "is_required" false}}
         {{/ifEquals}}
-        input_types.push("{{~safeTypeConvert schema @root.is_required}}".into());
+        input_types.push("{{~safeTypeConvert schema @root.is_required @root.cabi}}".into());
     {{~/each ~}}
-    let return_type = "{{safeTypeConvert _response.schema true}}".into();
+    let return_type = "{{safeTypeConvert _response.schema true @root.cabi}}".into();
     FnSignatureInformation { input_types, return_type }
 }
 
