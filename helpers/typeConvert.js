@@ -1,8 +1,12 @@
 const toSafeName = require("./toClassName");
 
-const fromFormat = (propFormat, is_required) => {
-  const naiveDate = "chrono::naive::NaiveDate";
-  const dateTime = "chrono::DateTime<chrono::Utc>";
+const fromFormat = (propFormat, is_required, is_cabi) => {
+  const naiveDate =
+    (is_cabi ? "Box<" : "") + "chrono::naive::NaiveDate" + (is_cabi ? ">" : "");
+  const dateTime =
+    (is_cabi ? "Box<" : "") +
+    "chrono::DateTime<chrono::Utc>" +
+    (is_cabi ? ">" : "");
   switch (propFormat) {
     case "int32":
       return is_required ? "i32" : "Option<i32>";
@@ -52,7 +56,7 @@ const fromType = (propType, additionalProperties, items, is_required) => {
   }
 };
 
-const typeConvert = (prop, is_required = true) => {
+const typeConvert = (prop, is_required = true, is_cabi = false) => {
   if (prop === null) return "()";
 
   if (prop === undefined) return "()";
@@ -64,7 +68,7 @@ const typeConvert = (prop, is_required = true) => {
   }
 
   const type = prop.format
-    ? fromFormat(prop.format, is_required)
+    ? fromFormat(prop.format, is_required, is_cabi)
     : fromType(prop.type, prop.additionalProperties, prop.items, is_required);
 
   return type === "" ? "()" : type;
